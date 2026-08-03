@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import requests
 
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
@@ -22,7 +23,7 @@ def print_to_terminal(result: dict) -> str:
     if not result["picks"]:
         lines.append("추천 종목 없음 (조건 충족 종목이 없습니다)")
     for pick in result["picks"]:
-        lines.append(f"📌 추천 {pick['rank']}: [{pick['code']}] {pick['name']} | 점수: {pick['score']}/105")
+        lines.append(f"[추천 {pick['rank']}] [{pick['code']}] {pick['name']} | 점수: {pick['score']}/105")
         lines.append(f"   패턴: {pick['pattern']}")
         lines.append(f"   현재가: {pick['current_price']:,.0f}원 | 등락률: +{pick['daily_return']}%")
         lines.append(f"   거래대금: {pick['trade_value_yuk']:.0f}억")
@@ -36,7 +37,8 @@ def print_to_terminal(result: dict) -> str:
 
     lines.append("[주의] 본 추천은 교육 목적이며 투자 성과를 보장하지 않습니다.")
     text = "\n".join(lines)
-    print(text)
+    encoding = sys.stdout.encoding or "utf-8"
+    print(text.encode(encoding, errors="replace").decode(encoding))
     return text
 
 
