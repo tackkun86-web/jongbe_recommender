@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 import requests
 
@@ -51,12 +52,36 @@ def save_json(result: dict) -> str:
     return path
 
 
+def _top_reasons(details: list[str], n: int = 3) -> list[str]:
+    def score_of(text: str) -> int:
+        m = re.search(r"\((\d+)점\)", text)
+        return int(m.group(1)) if m else 0
+
+    return sorted(details, key=score_of, reverse=True)[:n]
+
+
 def send_telegram(result: dict) -> bool:
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return False
     lines = [f"종가베팅 추천 ({result['date']})"]
+    if not result["picks"]:
+        lines.append("")
+        lines.append("추천 종목 없음")
     for pick in result["picks"]:
-        lines.append(f"{pick['rank']}. [{pick['code']}] {pick['name']} - {pick['score']}점 ({pick['pattern']})")
+        lines.append(
+            f"{pick['rank']}. [{pick['code']}] {pick['name']} - {pick['score']}점 ({pick['pattern']})"
+        )
+        if pick["details"]:
+            reasons = ", ".join(_top_reasons(pick["details"]))
+            lines.append(f"   이유: {reasons}")
+        er = pick["exit_rules"]
+        lines.append(
+            f"   익절: 1차 {er['take_profit_1']:,} / 2차 {er['take_profit_2']:,}"
+        )
+        lines.append(
+            f"   손절: 타이트 {er['stop_loss_tight']:,} / 마지노선 {er['stop_loss_max']:,}"
+        )
+        lines.append(f"   전략: {er['strategy']} (시간컷 {er['time_cut']})")
     message = "\n".join(lines)
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
