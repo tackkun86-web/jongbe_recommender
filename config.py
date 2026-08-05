@@ -21,6 +21,8 @@ NAVER_URLS = {
     "summary": "https://finance.naver.com/item/main.naver?code={code}",
     "kospi_index": "https://finance.naver.com/sise/sise_index.naver?code=KOSPI",
     "kosdaq_index": "https://finance.naver.com/sise/sise_index.naver?code=KOSDAQ",
+    "world_index": "https://finance.naver.com/world/",
+    "market_index": "https://finance.naver.com/marketindex/",
 }
 
 EXCLUDED_NAME_KEYWORDS = [
