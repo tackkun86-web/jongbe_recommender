@@ -12,7 +12,8 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 def print_to_terminal(result: dict) -> str:
     lines = []
     date_str = result["date"]
-    lines.append(f"=== 종가베팅 추천 ({date_str}) ===")
+    header_suffix = f" {result['time']} · {result['session_label']}" if result.get("session_label") else ""
+    lines.append(f"=== 종가베팅 추천 ({date_str}{header_suffix}) ===")
     kospi = result["market"]["kospi"]
     kosdaq = result["market"]["kosdaq"]
     lines.append(
@@ -45,7 +46,8 @@ def print_to_terminal(result: dict) -> str:
 
 def save_json(result: dict) -> str:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    filename = f"{result['date'].replace('-', '')}.json"
+    session = result.get("session", "close")
+    filename = f"{result['date'].replace('-', '')}_{session}.json"
     path = os.path.join(OUTPUT_DIR, filename)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
@@ -63,7 +65,8 @@ def _top_reasons(details: list[str], n: int = 3) -> list[str]:
 def send_telegram(result: dict) -> bool:
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return False
-    lines = [f"종가베팅 추천 ({result['date']})"]
+    header_suffix = f" {result['time']} · {result['session_label']}" if result.get("session_label") else ""
+    lines = [f"종가베팅 추천 ({result['date']}{header_suffix})"]
     if not result["picks"]:
         lines.append("")
         lines.append("추천 종목 없음")

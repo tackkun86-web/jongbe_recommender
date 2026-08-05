@@ -11,6 +11,11 @@ from config import SCORE_WEIGHTS
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
+SESSION_LABELS = {
+    "close": "정규장 마감",
+    "nxt": "넥스트레이드(NXT) 마감",
+}
+
 
 def _build_candidate_universe() -> list[dict]:
     seen = {}
@@ -80,9 +85,6 @@ def _evaluate_candidate(candidate: dict, prev_top_codes: set):
         sector_rank=None, sector_trade_value_eok=0, theme_continuity=theme_continuity,
     )
 
-    if score_result["total"] < SCORE_WEIGHTS["recommend_threshold"]:
-        return None
-
     exit_rules = generate_exit_rules(pattern, last["close"])
 
     return {
@@ -96,10 +98,11 @@ def _evaluate_candidate(candidate: dict, prev_top_codes: set):
         "score": score_result["total"],
         "details": score_result["breakdown"],
         "exit_rules": exit_rules,
+        "passed_threshold": score_result["total"] >= SCORE_WEIGHTS["recommend_threshold"],
     }
 
 
-def run_analysis() -> dict:
+def run_analysis(session: str = "close") -> dict:
     prev_top_codes = _load_prev_top_codes()
     universe = _build_candidate_universe()
 
@@ -113,15 +116,23 @@ def run_analysis() -> dict:
             picks.append(pick)
 
     picks.sort(key=lambda p: p["score"], reverse=True)
-    top_picks = picks[:SCORE_WEIGHTS["top_n"]]
+    qualified = [p for p in picks if p["passed_threshold"]]
+    top_picks = qualified[:SCORE_WEIGHTS["top_n"]]
+    if len(top_picks) < SCORE_WEIGHTS["min_recommend"]:
+        chosen_ids = {id(p) for p in top_picks}
+        fallback = [p for p in picks if id(p) not in chosen_ids]
+        top_picks += fallback[: SCORE_WEIGHTS["min_recommend"] - len(top_picks)]
     for i, pick in enumerate(top_picks, start=1):
         pick["rank"] = i
+        del pick["passed_threshold"]
 
     market_index = data_fetcher.get_market_index()
 
     return {
         "date": datetime.now().strftime("%Y-%m-%d"),
-        "time": "15:10",
+        "time": datetime.now().strftime("%H:%M"),
+        "session": session,
+        "session_label": SESSION_LABELS.get(session, session),
         "market": {
             "kospi": market_index.get("kospi", {"index": None, "change_pct": None}),
             "kosdaq": market_index.get("kosdaq", {"index": None, "change_pct": None}),

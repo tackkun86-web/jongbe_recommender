@@ -1,9 +1,12 @@
+import sys
+
 import recommender
 import notifier
 
 
 def main():
-    result = recommender.run_analysis()
+    session = sys.argv[1] if len(sys.argv) > 1 else "close"
+    result = recommender.run_analysis(session=session)
     notifier.notify(result)
 
 

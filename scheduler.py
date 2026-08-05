@@ -13,9 +13,9 @@ logging.basicConfig(
 )
 
 
-def _run_and_notify():
+def _run_and_notify(session: str = "close"):
     try:
-        result = recommender.run_analysis()
+        result = recommender.run_analysis(session=session)
         notifier.notify(result)
     except Exception:
         logging.exception("run_analysis failed")
@@ -23,8 +23,9 @@ def _run_and_notify():
 
 def start():
     for day in ("monday", "tuesday", "wednesday", "thursday", "friday"):
-        getattr(schedule.every(), day).at("15:10").do(_run_and_notify)
-    logging.info("scheduler started, waiting for weekday 15:10 KST")
+        getattr(schedule.every(), day).at("15:10").do(_run_and_notify, session="close")
+        getattr(schedule.every(), day).at("19:50").do(_run_and_notify, session="nxt")
+    logging.info("scheduler started, waiting for weekday 15:10 and 19:50 KST")
     while True:
         schedule.run_pending()
         time.sleep(30)

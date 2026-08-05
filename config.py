@@ -54,6 +54,7 @@ SCORE_WEIGHTS = {
     "bonus": {"macd_cross_pts": 2, "rsi_range_pts": 2, "rsi_low": 50, "rsi_high": 70},
     "recommend_threshold": 50,
     "top_n": 5,
+    "min_recommend": 3,
 }
 
 EXIT_RULES = {
