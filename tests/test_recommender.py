@@ -169,3 +169,65 @@ def test_nxt_theme_streak_stops_at_first_gap(tmp_path, monkeypatch):
         json.dump({"picks": [{"code": "000660"}]}, f)
     streak = recommender._nxt_theme_streak("000660")
     assert streak == 1
+
+
+def test_nxt_theme_streak_excludes_todays_own_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(recommender, "OUTPUT_DIR", str(tmp_path))
+    today = datetime.now().strftime("%Y%m%d")
+    # A prior day's file establishes a streak of 1.
+    with open(os.path.join(str(tmp_path), "20250101_nxt.json"), "w", encoding="utf-8") as f:
+        json.dump({"picks": [{"code": "000660"}]}, f)
+    # Today's own file (e.g. from a manual re-run) must not be counted.
+    with open(os.path.join(str(tmp_path), f"{today}_nxt.json"), "w", encoding="utf-8") as f:
+        json.dump({"picks": [{"code": "000660"}]}, f)
+    streak = recommender._nxt_theme_streak("000660", max_days=5)
+    assert streak == 1
+
+
+def test_load_prev_top_codes_prefers_close_file_over_nxt_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(recommender, "OUTPUT_DIR", str(tmp_path))
+    with open(os.path.join(str(tmp_path), "20260804_close.json"), "w", encoding="utf-8") as f:
+        json.dump({"picks": [{"code": "005930"}]}, f)
+    with open(os.path.join(str(tmp_path), "20260804_nxt.json"), "w", encoding="utf-8") as f:
+        json.dump({"picks": [{"code": "000660"}]}, f)
+    codes = recommender._load_prev_top_codes()
+    assert codes == {"005930"}
+
+
+def test_run_nxt_analysis_does_not_crash_on_garbage_trade_value(monkeypatch, tmp_path):
+    _stub_common(monkeypatch)
+    today = datetime.now().strftime("%Y-%m-%d")
+    input_path = tmp_path / "nxt_signals.json"
+    input_path.write_text(json.dumps({
+        "date": today,
+        "overseas": {},
+        "events": {},
+        "nxt_stocks": [{"code": "000660", "name": "SK하이닉스", "nxt_price": 100,
+                         "nxt_change_pct": 5.0, "nxt_trade_value_eok": "120억"}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(recommender.input_loader, "DEFAULT_PATH", str(input_path))
+    monkeypatch.setattr(recommender, "_load_recent_nxt_totals", lambda max_days=5: [])
+
+    result = recommender.run_analysis(session="nxt")
+    assert result["session"] == "nxt"
+    assert result["nxt_total_trade_value_eok"] == 0
+
+
+def test_evaluate_nxt_candidate_returns_none_when_nxt_price_missing(monkeypatch):
+    monkeypatch.setattr(recommender.data_fetcher, "get_stock_daily_data",
+                         lambda code, days_needed=60: _fake_gap_daily_df())
+    monkeypatch.setattr(recommender.data_fetcher, "get_investor_data",
+                         lambda code, days_needed=5: _fake_investor_df())
+    stock = {"code": "000660", "name": "SK하이닉스", "nxt_change_pct": 5.0}
+    pick = recommender._evaluate_nxt_candidate(stock, overseas_signals={})
+    assert pick is None
+
+
+def test_evaluate_nxt_candidate_returns_none_when_nxt_change_pct_missing(monkeypatch):
+    monkeypatch.setattr(recommender.data_fetcher, "get_stock_daily_data",
+                         lambda code, days_needed=60: _fake_gap_daily_df())
+    monkeypatch.setattr(recommender.data_fetcher, "get_investor_data",
+                         lambda code, days_needed=5: _fake_investor_df())
+    stock = {"code": "000660", "name": "SK하이닉스", "nxt_price": 250000}
+    pick = recommender._evaluate_nxt_candidate(stock, overseas_signals={})
+    assert pick is None

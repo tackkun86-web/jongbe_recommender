@@ -35,7 +35,7 @@ def _build_candidate_universe() -> list[dict]:
 def _load_prev_top_codes() -> set:
     if not os.path.isdir(OUTPUT_DIR):
         return set()
-    files = sorted(f for f in os.listdir(OUTPUT_DIR) if f.endswith(".json"))
+    files = sorted(f for f in os.listdir(OUTPUT_DIR) if f.endswith("_close.json"))
     if not files:
         return set()
     try:
@@ -49,7 +49,11 @@ def _load_prev_top_codes() -> set:
 def _nxt_theme_streak(code: str, max_days: int = 5) -> int:
     if not os.path.isdir(OUTPUT_DIR):
         return 0
-    files = sorted(f for f in os.listdir(OUTPUT_DIR) if f.endswith("_nxt.json"))
+    today = datetime.now().strftime("%Y%m%d")
+    files = sorted(
+        f for f in os.listdir(OUTPUT_DIR)
+        if f.endswith("_nxt.json") and not f.startswith(today)
+    )
     streak = 0
     for filename in reversed(files[-max_days:]):
         try:
@@ -68,7 +72,11 @@ def _nxt_theme_streak(code: str, max_days: int = 5) -> int:
 def _load_recent_nxt_totals(max_days: int = 5) -> list[float]:
     if not os.path.isdir(OUTPUT_DIR):
         return []
-    files = sorted(f for f in os.listdir(OUTPUT_DIR) if f.endswith("_nxt.json"))
+    today = datetime.now().strftime("%Y%m%d")
+    files = sorted(
+        f for f in os.listdir(OUTPUT_DIR)
+        if f.endswith("_nxt.json") and not f.startswith(today)
+    )
     totals = []
     for filename in files[-max_days:]:
         try:
@@ -83,6 +91,8 @@ def _load_recent_nxt_totals(max_days: int = 5) -> list[float]:
 
 
 def _evaluate_nxt_candidate(stock: dict, overseas_signals: dict):
+    if stock.get("nxt_price") is None or stock.get("nxt_change_pct") is None:
+        return None
     try:
         df = data_fetcher.get_stock_daily_data(stock["code"], days_needed=60)
         if len(df) < 20:
