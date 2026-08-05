@@ -39,6 +39,8 @@ HARD_FILTERS = {
     "max_close_off_high_pct": 3.0,    # (high-close)/high*100
 }
 
+NXT_HARD_FILTERS = {"min_nxt_trade_ratio_pct": 3.0}
+
 SCORE_WEIGHTS = {
     "trade_value": {"tier1_eok": 2000, "tier1_pts": 15,
                      "tier2_eok": 1000, "tier2_pts": 10,

@@ -1,4 +1,4 @@
-from filters import is_etf_etn_spac, apply_hard_filters, apply_trend_filters
+from filters import is_etf_etn_spac, apply_hard_filters, apply_trend_filters, apply_nxt_trade_ratio_filter, apply_nxt_hard_filters
 
 
 def test_is_etf_etn_spac_detects_keyword():
@@ -71,3 +71,55 @@ def test_apply_trend_filters_passes_healthy_candidate():
     passed, reason = apply_trend_filters({}, ma5=110, ma20=100, close=99, high=100)
     assert passed is True
     assert reason == ""
+
+
+def test_apply_nxt_trade_ratio_filter_passes_above_threshold():
+    passed, reason = apply_nxt_trade_ratio_filter(nxt_trade_value_eok=30, daily_trade_value_eok=500)
+    assert passed is True
+    assert reason == ""
+
+
+def test_apply_nxt_trade_ratio_filter_rejects_below_threshold():
+    passed, reason = apply_nxt_trade_ratio_filter(nxt_trade_value_eok=5, daily_trade_value_eok=500)
+    assert passed is False
+    assert reason == "nxt_trade_ratio"
+
+
+def test_apply_nxt_hard_filters_passes_valid_candidate():
+    candidate = {"name": "SK하이닉스", "daily_trade_value_eok": 8500,
+                 "daily_change_pct": 5.0, "nxt_trade_value_eok": 300}
+    passed, reason = apply_nxt_hard_filters(candidate)
+    assert passed is True
+    assert reason == ""
+
+
+def test_apply_nxt_hard_filters_rejects_etf_name():
+    candidate = {"name": "KODEX 반도체", "daily_trade_value_eok": 8500,
+                 "daily_change_pct": 5.0, "nxt_trade_value_eok": 300}
+    passed, reason = apply_nxt_hard_filters(candidate)
+    assert passed is False
+    assert reason == "etf_etn_spac"
+
+
+def test_apply_nxt_hard_filters_rejects_low_daily_trade_value():
+    candidate = {"name": "종목", "daily_trade_value_eok": 100,
+                 "daily_change_pct": 5.0, "nxt_trade_value_eok": 300}
+    passed, reason = apply_nxt_hard_filters(candidate)
+    assert passed is False
+    assert reason == "trade_value"
+
+
+def test_apply_nxt_hard_filters_rejects_limit_up():
+    candidate = {"name": "종목", "daily_trade_value_eok": 8500,
+                 "daily_change_pct": 29.5, "nxt_trade_value_eok": 300}
+    passed, reason = apply_nxt_hard_filters(candidate)
+    assert passed is False
+    assert reason == "limit_up"
+
+
+def test_apply_nxt_hard_filters_rejects_thin_nxt_trade_value():
+    candidate = {"name": "종목", "daily_trade_value_eok": 8500,
+                 "daily_change_pct": 5.0, "nxt_trade_value_eok": 5}
+    passed, reason = apply_nxt_hard_filters(candidate)
+    assert passed is False
+    assert reason == "nxt_trade_ratio"
