@@ -3,3 +3,4 @@ __pycache__/
 .env
 output/*.json
 logs/*.log
+input/nxt_signals.json

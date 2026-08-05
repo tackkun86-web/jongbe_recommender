@@ -1,0 +1,29 @@
+{
+  "date": "2026-08-05",
+  "updated_at": "19:45",
+  "overseas": {
+    "sp500_futures_change_pct": 0.3,
+    "nasdaq_futures_change_pct": 0.5,
+    "sox_change_pct": -0.2,
+    "kospi200_night_futures_change_pct": 0.1,
+    "us_10y_yield_change_bp": -2.0,
+    "hynix_adr_change_pct": 1.2,
+    "samsung_adr_change_pct": 0.4
+  },
+  "events": {
+    "major_event_tomorrow": false,
+    "event_desc": "",
+    "geopolitical_shock": false
+  },
+  "nxt_stocks": [
+    {
+      "code": "000660",
+      "name": "SK하이닉스",
+      "nxt_price": 250000,
+      "nxt_change_pct": 4.5,
+      "nxt_trade_value_eok": 120,
+      "nxt_volume": 50000,
+      "buy_sell_ratio": 1.4
+    }
+  ]
+}
