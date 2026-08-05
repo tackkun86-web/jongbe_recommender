@@ -19,15 +19,17 @@ def print_to_terminal(result: dict) -> str:
     lines.append(
         f"시장 상황: 코스피 {kospi.get('change_pct')}% | 코스닥 {kosdaq.get('change_pct')}%"
     )
-    lines.append("야간선물/미국장: 데이터 없음 (미구현)")
+    if result.get("session") != "nxt":
+        lines.append("야간선물/미국장: 데이터 없음 (미구현)")
     lines.append("")
 
     if not result["picks"]:
         lines.append("추천 종목 없음 (조건 충족 종목이 없습니다)")
     for pick in result["picks"]:
-        lines.append(f"[추천 {pick['rank']}] [{pick['code']}] {pick['name']} | 점수: {pick['score']}/105")
+        max_score = 100 if pick.get("market") == "NXT" else 105
+        lines.append(f"[추천 {pick['rank']}] [{pick['code']}] {pick['name']} | 점수: {pick['score']}/{max_score}")
         lines.append(f"   패턴: {pick['pattern']}")
-        lines.append(f"   현재가: {pick['current_price']:,.0f}원 | 등락률: +{pick['daily_return']}%")
+        lines.append(f"   현재가: {pick['current_price']:,.0f}원 | 등락률: {pick['daily_return']:+.2f}%")
         lines.append(f"   거래대금: {pick['trade_value_yuk']:.0f}억")
         for detail in pick["details"]:
             lines.append(f"   - {detail}")
@@ -112,21 +114,27 @@ def format_nxt_report(result: dict) -> str:
         ("미국 10년물 금리(bp)", "us_10y_yield_change_bp"),
         ("원/달러 환율", "usd_krw_change_pct"), ("WTI 유가", "wti_change_pct"),
     ]
+    def _fmt_pct(value):
+        return "데이터 부족" if value is None else f"{value:+.2f}%"
+
     for label, key in fields:
         value = overseas_data.get(key)
-        display = "데이터 부족" if value is None else f"{value:+.2f}%"
+        if key == "us_10y_yield_change_bp":
+            display = "데이터 부족" if value is None else f"{value:+.1f}bp"
+        else:
+            display = _fmt_pct(value)
         lines.append(f"| {label} | {display} |")
     lines.append("")
 
     kospi = result["market"]["kospi"]
     kosdaq = result["market"]["kosdaq"]
     lines.append("### 코스피/코스닥")
-    lines.append(f"- 코스피: {kospi.get('change_pct')}% / 코스닥: {kosdaq.get('change_pct')}%")
+    lines.append(f"- 코스피: {_fmt_pct(kospi.get('change_pct'))} / 코스닥: {_fmt_pct(kosdaq.get('change_pct'))}")
     lines.append("")
 
     total = result.get("nxt_total_trade_value_eok")
     lines.append("### NXT 애프터마켓 요약")
-    lines.append(f"- 총 거래대금: {total if total is not None else '데이터 부족'}억원")
+    lines.append(f"- 관찰 종목 합산 거래대금: {total if total is not None else '데이터 부족'}억원")
     lines.append("")
 
     lines.append("## 2. 추천 종목")
@@ -134,10 +142,13 @@ def format_nxt_report(result: dict) -> str:
     if result.get("veto_blocked") or not result["picks"]:
         lines.append("**오늘은 추천 없음**")
         lines.append("")
-        if result.get("veto_reasons"):
+        if result.get("veto_blocked") and result.get("veto_reasons"):
             lines.append("무추천 사유:")
             for reason in result["veto_reasons"]:
                 lines.append(f"- {reason}")
+            lines.append("")
+        elif not result.get("veto_blocked"):
+            lines.append("기준 점수(70점) 이상 종목 없음")
             lines.append("")
     else:
         for pick in result["picks"]:

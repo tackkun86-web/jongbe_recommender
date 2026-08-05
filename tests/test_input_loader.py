@@ -41,3 +41,37 @@ def test_load_handles_malformed_json(tmp_path):
     path.write_text("{not valid json", encoding="utf-8")
     data = input_loader.load_nxt_signals(path=str(path), today="2026-08-05")
     assert data["nxt_stocks"] == []
+
+
+def test_load_coerces_nxt_stocks_dict_to_empty_list(tmp_path):
+    path = tmp_path / "nxt_signals.json"
+    path.write_text(json.dumps({"date": "2026-08-05", "nxt_stocks": {"code": "000660"}}),
+                     encoding="utf-8")
+    data = input_loader.load_nxt_signals(path=str(path), today="2026-08-05")
+    assert data["nxt_stocks"] == []
+
+
+def test_load_drops_non_dict_entries_in_nxt_stocks(tmp_path):
+    path = tmp_path / "nxt_signals.json"
+    path.write_text(json.dumps({
+        "date": "2026-08-05",
+        "nxt_stocks": ["not a dict", {"code": "000660", "name": "SK하이닉스"}],
+    }), encoding="utf-8")
+    data = input_loader.load_nxt_signals(path=str(path), today="2026-08-05")
+    assert len(data["nxt_stocks"]) == 1
+    assert data["nxt_stocks"][0]["code"] == "000660"
+
+
+def test_load_drops_non_numeric_trade_value_but_keeps_stock(tmp_path):
+    path = tmp_path / "nxt_signals.json"
+    path.write_text(json.dumps({
+        "date": "2026-08-05",
+        "nxt_stocks": [{"code": "000660", "name": "SK하이닉스",
+                         "nxt_price": 250000, "nxt_trade_value_eok": "120억"}],
+    }), encoding="utf-8")
+    data = input_loader.load_nxt_signals(path=str(path), today="2026-08-05")
+    assert len(data["nxt_stocks"]) == 1
+    stock = data["nxt_stocks"][0]
+    assert "nxt_trade_value_eok" not in stock
+    assert stock["code"] == "000660"
+    assert stock["nxt_price"] == 250000.0

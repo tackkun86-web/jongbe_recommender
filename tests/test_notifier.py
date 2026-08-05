@@ -27,6 +27,39 @@ def test_print_to_terminal_includes_key_fields(capsys):
     assert "SK하이닉스" in captured.out
 
 
+def test_print_to_terminal_formats_negative_unrounded_daily_return(capsys):
+    result = json.loads(json.dumps(SAMPLE_RESULT))
+    result["picks"][0]["daily_return"] = -1.2345678901
+    text = notifier.print_to_terminal(result)
+    assert "등락률: -1.23%" in text
+    assert "+-1.2345678901%" not in text
+
+
+def test_print_to_terminal_uses_100_denominator_for_nxt_picks(capsys):
+    result = json.loads(json.dumps(SAMPLE_RESULT))
+    result["picks"][0]["market"] = "NXT"
+    text = notifier.print_to_terminal(result)
+    assert "/100" in text
+    assert "/105" not in text
+
+
+def test_print_to_terminal_uses_105_denominator_for_close_picks(capsys):
+    text = notifier.print_to_terminal(SAMPLE_RESULT)
+    assert "/105" in text
+
+
+def test_print_to_terminal_omits_overseas_placeholder_for_nxt_session(capsys):
+    result = json.loads(json.dumps(SAMPLE_RESULT))
+    result["session"] = "nxt"
+    text = notifier.print_to_terminal(result)
+    assert "야간선물/미국장: 데이터 없음 (미구현)" not in text
+
+
+def test_print_to_terminal_shows_overseas_placeholder_for_close_session(capsys):
+    text = notifier.print_to_terminal(SAMPLE_RESULT)
+    assert "야간선물/미국장: 데이터 없음 (미구현)" in text
+
+
 def test_save_json_writes_file(tmp_path, monkeypatch):
     monkeypatch.setattr(notifier, "OUTPUT_DIR", str(tmp_path))
     path = notifier.save_json(SAMPLE_RESULT)
@@ -177,6 +210,42 @@ def test_format_nxt_report_shows_no_recommendation_reasons():
     text = notifier.format_nxt_report(NXT_BLOCKED_RESULT)
     assert "오늘은 추천 없음" in text
     assert "코스피 -1.5% 이상 하락 마감" in text
+
+
+def test_format_nxt_report_uses_observed_stock_total_label():
+    text = notifier.format_nxt_report(NXT_SAMPLE_RESULT)
+    assert "관찰 종목 합산 거래대금" in text
+    assert "총 거래대금" not in text
+
+
+def test_format_nxt_report_formats_10y_yield_as_bp():
+    result = json.loads(json.dumps(NXT_SAMPLE_RESULT))
+    result["market"]["overseas"]["us_10y_yield_change_bp"] = 3.5
+    text = notifier.format_nxt_report(result)
+    assert "+3.5bp" in text
+    assert "+3.50%" not in text
+
+
+def test_format_nxt_report_guards_none_kospi_kosdaq_change_pct():
+    result = json.loads(json.dumps(NXT_SAMPLE_RESULT))
+    result["market"]["kospi"]["change_pct"] = None
+    result["market"]["kosdaq"]["change_pct"] = None
+    text = notifier.format_nxt_report(result)
+    assert "코스피: 데이터 부족" in text
+    assert "코스닥: 데이터 부족" in text
+    assert "None%" not in text
+
+
+def test_format_nxt_report_no_veto_reasons_when_not_vetoed_but_no_picks():
+    result = json.loads(json.dumps(NXT_SAMPLE_RESULT))
+    result["picks"] = []
+    result["veto_blocked"] = False
+    result["veto_reasons"] = ["코스피 -1.5% 이상 하락 마감"]  # a single non-blocking veto reason
+    text = notifier.format_nxt_report(result)
+    assert "오늘은 추천 없음" in text
+    assert "기준 점수(70점) 이상 종목 없음" in text
+    assert "무추천 사유:" not in text
+    assert "코스피 -1.5% 이상 하락 마감" not in text
 
 
 def test_save_nxt_markdown_writes_file(tmp_path, monkeypatch):

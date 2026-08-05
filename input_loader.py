@@ -41,5 +41,28 @@ def load_nxt_signals(path: str = DEFAULT_PATH, today: str | None = None) -> dict
     merged["date"] = data.get("date")
     merged["overseas"].update(data.get("overseas") or {})
     merged["events"].update(data.get("events") or {})
-    merged["nxt_stocks"] = data.get("nxt_stocks") or []
+    merged["nxt_stocks"] = _sanitize_nxt_stocks(data.get("nxt_stocks"))
     return merged
+
+
+_NUMERIC_STOCK_FIELDS = (
+    "nxt_price", "nxt_change_pct", "nxt_trade_value_eok", "nxt_volume", "buy_sell_ratio",
+)
+
+
+def _sanitize_nxt_stocks(raw) -> list[dict]:
+    if not isinstance(raw, list):
+        return []
+    stocks = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        stock = dict(entry)
+        for field in _NUMERIC_STOCK_FIELDS:
+            if field in stock:
+                try:
+                    stock[field] = float(stock[field])
+                except (TypeError, ValueError):
+                    del stock[field]
+        stocks.append(stock)
+    return stocks

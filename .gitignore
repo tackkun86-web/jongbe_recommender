@@ -2,5 +2,6 @@ __pycache__/
 *.pyc
 .env
 output/*.json
+output/*.md
 logs/*.log
 input/nxt_signals.json
