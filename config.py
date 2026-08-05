@@ -73,6 +73,7 @@ EXIT_RULES = {
     "없음": {"tp1_pct": 2, "tp2_pct": 5, "strategy": "시초가 갭상승 시 익절"},
 }
 STOP_LOSS = {"tight_pct": 2, "max_pct": 4, "time_cut": "10:00"}
+NXT_EXIT_RULES = {"tp1_pct": 4.0, "tp2_pct": 6.0, "no_chase_pct": 2.0}
 
 VETO_THRESHOLDS = {
     "night_futures_pct": -0.5,
