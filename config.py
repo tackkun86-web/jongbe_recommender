@@ -61,6 +61,33 @@ SCORE_WEIGHTS = {
     "min_recommend": 3,
 }
 
+NXT_SCORE_WEIGHTS = {
+    "nxt_flow": {"t1_pct": 5.0, "t1_pts": 25, "t2_pct": 3.0, "t2_pts": 20,
+                 "t3_pct": 1.0, "t3_pts": 12, "t4_pts": 5,
+                 "min_trade_value_eok": 1.0, "thin_pts": 2},
+    "supply": {"both_pts": 20, "single_pts": 12, "flat_pts": 6, "sell_pts": 0},
+    "theme": {"streak_pts": 20, "single_day_pts": 10, "none_pts": 0},
+    "overseas": {"up_pts": 15, "flat_pts": 8, "down_pts": 0, "flat_band_pct": 0.2},
+    "technical": {"breakout_pts": 15, "above_ma_pts": 8, "below_ma_pts": 0, "proximity_pct": 7.0},
+    "gap": {"freq_high_pct": 60.0, "freq_high_pts": 5,
+            "freq_mid_pct": 40.0, "freq_mid_pts": 3, "freq_low_pts": 0},
+    "risk": {"night_futures_pts": -5, "fx_surge_pts": -5, "us_futures_pts": -5,
+             "overheat_pts": -5, "cap": -20},
+    "recommend_threshold": 70,
+    "top_n": 5,
+}
+
+SECTOR_KEYWORDS = [
+    {"keywords": ["하이닉스", "삼성전자", "반도체", "한미반도체"],
+     "signal": "sox_change_pct", "label": "반도체(SOX)"},
+    {"keywords": ["에너지솔루션", "에코프로", "포스코", "2차전지"],
+     "signal": "nasdaq_futures_change_pct", "label": "2차전지(나스닥)"},
+    {"keywords": ["에어로스페이스", "로템", "넥스원", "방산"],
+     "signal": "sp500_futures_change_pct", "label": "방산(S&P500)"},
+    {"keywords": ["이노베이션", "S-Oil", "GS"],
+     "signal": "sp500_futures_change_pct", "label": "정유(S&P500)"},
+]
+
 EXIT_RULES = {
     "신고가": {"tp1_pct": 3, "tp2_pct": 5,
               "strategy": "시초가 갭상승 시 익절, 장초반 슈팅 시 2차 익절"},
