@@ -99,6 +99,13 @@ def send_telegram(result: dict) -> bool:
 def format_nxt_report(result: dict) -> str:
     lines = [f"# {result['date']} NXT 종가베팅 추천 리포트", f"## 발행 시각: {result['time']} KST", ""]
 
+    if result.get("nxt_data_source") == "fallback_regular_session":
+        lines.append(
+            "> ⚠️ NXT 입력 데이터(`input/nxt_signals.json`) 없음 — 정규장 상승률/거래대금 "
+            "상위 종목으로 대체하여 분석했습니다. 실제 NXT 애프터마켓 체결가와 다를 수 있습니다."
+        )
+        lines.append("")
+
     overseas_data = result["market"].get("overseas", {})
     lines.append("## 1. 시장 요약")
     lines.append("")

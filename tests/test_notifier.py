@@ -236,6 +236,21 @@ def test_format_nxt_report_guards_none_kospi_kosdaq_change_pct():
     assert "None%" not in text
 
 
+def test_format_nxt_report_shows_fallback_banner_when_using_regular_session_data():
+    result = json.loads(json.dumps(NXT_SAMPLE_RESULT))
+    result["nxt_data_source"] = "fallback_regular_session"
+    text = notifier.format_nxt_report(result)
+    assert "NXT 입력 데이터" in text
+    assert "정규장 상승률/거래대금" in text
+
+
+def test_format_nxt_report_omits_fallback_banner_when_using_input_file():
+    result = json.loads(json.dumps(NXT_SAMPLE_RESULT))
+    result["nxt_data_source"] = "input_file"
+    text = notifier.format_nxt_report(result)
+    assert "NXT 입력 데이터" not in text
+
+
 def test_format_nxt_report_no_veto_reasons_when_not_vetoed_but_no_picks():
     result = json.loads(json.dumps(NXT_SAMPLE_RESULT))
     result["picks"] = []

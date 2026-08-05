@@ -90,6 +90,33 @@ def _load_recent_nxt_totals(max_days: int = 5) -> list[float]:
     return totals
 
 
+def _build_fallback_nxt_stocks() -> list[dict]:
+    try:
+        universe = _build_candidate_universe()
+    except Exception:
+        return []
+    stocks = []
+    for candidate in universe:
+        hard_pass, _ = filters.apply_hard_filters({
+            "name": candidate["name"],
+            "market_cap_eok": candidate["market_cap_eok"],
+            "change_pct": candidate["change_pct"],
+            "trade_value_eok": candidate["trade_value_eok"],
+        })
+        if not hard_pass:
+            continue
+        stocks.append({
+            "code": candidate["code"],
+            "name": candidate["name"],
+            "nxt_price": candidate["price"],
+            "nxt_change_pct": candidate["change_pct"],
+            "nxt_trade_value_eok": candidate["trade_value_eok"],
+            "nxt_volume": candidate.get("volume", 0),
+            "buy_sell_ratio": 1.0,
+        })
+    return stocks
+
+
 def _evaluate_nxt_candidate(stock: dict, overseas_signals: dict):
     if stock.get("nxt_price") is None or stock.get("nxt_change_pct") is None:
         return None
@@ -147,6 +174,11 @@ def _evaluate_nxt_candidate(stock: dict, overseas_signals: dict):
 
 def run_nxt_analysis() -> dict:
     input_data = input_loader.load_nxt_signals(path=input_loader.DEFAULT_PATH)
+    used_fallback = False
+    if not input_data["nxt_stocks"]:
+        input_data["nxt_stocks"] = _build_fallback_nxt_stocks()
+        used_fallback = True
+
     market_index = data_fetcher.get_market_index()
     kospi_change_pct = market_index.get("kospi", {}).get("change_pct")
 
@@ -174,6 +206,7 @@ def run_nxt_analysis() -> dict:
             "overseas": overseas_signals,
         },
         "nxt_total_trade_value_eok": today_total,
+        "nxt_data_source": "fallback_regular_session" if used_fallback else "input_file",
         "veto_blocked": blocked,
         "veto_reasons": veto_reasons,
         "picks": [],

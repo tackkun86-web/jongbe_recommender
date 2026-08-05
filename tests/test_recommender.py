@@ -109,7 +109,7 @@ def test_run_nxt_analysis_blocks_on_veto(monkeypatch, tmp_path):
     assert len(result["veto_reasons"]) >= 2
 
 
-def test_run_nxt_analysis_returns_no_recommendation_when_no_stocks(monkeypatch, tmp_path):
+def test_run_nxt_analysis_returns_no_recommendation_when_no_stocks_and_fallback_empty(monkeypatch, tmp_path):
     _stub_common(monkeypatch)
     today = datetime.now().strftime("%Y-%m-%d")
     input_path = tmp_path / "nxt_signals.json"
@@ -117,10 +117,75 @@ def test_run_nxt_analysis_returns_no_recommendation_when_no_stocks(monkeypatch, 
                                         "nxt_stocks": []}), encoding="utf-8")
     monkeypatch.setattr(recommender.input_loader, "DEFAULT_PATH", str(input_path))
     monkeypatch.setattr(recommender, "_load_recent_nxt_totals", lambda max_days=5: [])
+    monkeypatch.setattr(recommender, "_build_fallback_nxt_stocks", lambda: [])
 
     result = recommender.run_analysis(session="nxt")
     assert result["picks"] == []
     assert result["veto_blocked"] is False
+    assert result["nxt_data_source"] == "fallback_regular_session"
+
+
+def test_run_nxt_analysis_uses_input_file_data_source_when_stocks_present(monkeypatch, tmp_path):
+    _stub_common(monkeypatch)
+    today = datetime.now().strftime("%Y-%m-%d")
+    input_path = tmp_path / "nxt_signals.json"
+    input_path.write_text(json.dumps({
+        "date": today, "overseas": {}, "events": {},
+        "nxt_stocks": [{"code": "000660", "name": "SK하이닉스", "nxt_price": 250000,
+                         "nxt_change_pct": 6.0, "nxt_trade_value_eok": 300}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(recommender.input_loader, "DEFAULT_PATH", str(input_path))
+    monkeypatch.setattr(recommender, "_load_recent_nxt_totals", lambda max_days=5: [])
+
+    result = recommender.run_analysis(session="nxt")
+    assert result["nxt_data_source"] == "input_file"
+
+
+def test_run_nxt_analysis_falls_back_to_regular_session_when_input_missing(monkeypatch, tmp_path):
+    _stub_common(monkeypatch)
+    today = datetime.now().strftime("%Y-%m-%d")
+    input_path = tmp_path / "nxt_signals.json"
+    input_path.write_text(json.dumps({"date": today, "overseas": {}, "events": {},
+                                        "nxt_stocks": []}), encoding="utf-8")
+    monkeypatch.setattr(recommender.input_loader, "DEFAULT_PATH", str(input_path))
+    monkeypatch.setattr(recommender, "_load_recent_nxt_totals", lambda max_days=5: [])
+    monkeypatch.setattr(recommender, "_nxt_theme_streak", lambda code, max_days=5: 0)
+    monkeypatch.setattr(recommender, "_build_fallback_nxt_stocks", lambda: [
+        {"code": "005930", "name": "삼성전자", "nxt_price": 80000, "nxt_change_pct": 4.0,
+         "nxt_trade_value_eok": 9000, "nxt_volume": 1000, "buy_sell_ratio": 1.0},
+    ])
+
+    result = recommender.run_analysis(session="nxt")
+    assert result["nxt_data_source"] == "fallback_regular_session"
+    assert result["nxt_total_trade_value_eok"] == 9000
+
+
+def test_build_fallback_nxt_stocks_maps_and_filters_universe(monkeypatch):
+    universe = [
+        {"code": "005930", "name": "삼성전자", "market": "KOSPI", "price": 80000,
+         "change_pct": 5.0, "volume": 1_000_000, "trade_value_eok": 9000, "market_cap_eok": 5_000_000},
+        {"code": "999999", "name": "KODEX 200", "market": "KOSPI", "price": 30000,
+         "change_pct": 4.0, "volume": 500_000, "trade_value_eok": 2000, "market_cap_eok": 3_000_000},
+    ]
+    monkeypatch.setattr(recommender, "_build_candidate_universe", lambda: universe)
+
+    stocks = recommender._build_fallback_nxt_stocks()
+
+    assert len(stocks) == 1
+    stock = stocks[0]
+    assert stock["code"] == "005930"
+    assert stock["nxt_price"] == 80000
+    assert stock["nxt_change_pct"] == 5.0
+    assert stock["nxt_trade_value_eok"] == 9000
+    assert stock["buy_sell_ratio"] == 1.0
+
+
+def test_build_fallback_nxt_stocks_returns_empty_on_universe_failure(monkeypatch):
+    def raise_error():
+        raise ConnectionError("boom")
+
+    monkeypatch.setattr(recommender, "_build_candidate_universe", raise_error)
+    assert recommender._build_fallback_nxt_stocks() == []
 
 
 def test_run_nxt_analysis_produces_ranked_picks(monkeypatch, tmp_path):
