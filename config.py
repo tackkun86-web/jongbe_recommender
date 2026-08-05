@@ -72,5 +72,15 @@ EXIT_RULES = {
 }
 STOP_LOSS = {"tight_pct": 2, "max_pct": 4, "time_cut": "10:00"}
 
+VETO_THRESHOLDS = {
+    "night_futures_pct": -0.5,
+    "sp500_futures_pct": -0.5,
+    "fx_change_pct": 0.5,
+    "sox_pct": -1.0,
+    "kospi_close_pct": -1.5,
+    "nxt_trade_value_ratio_pct": 50.0,
+    "min_conditions": 2,
+}
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or None
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or None
