@@ -172,3 +172,62 @@ def evaluate_confirmation(
         return False, breakdown, "총점 75점 미만"
 
     return True, breakdown, None
+
+
+def check_weakness(
+    candidate: CandidateState,
+    snapshot: StockSnapshot,
+    market_rank: int,
+    theme_rank: int | None,
+    config: Config,
+    overtaken_by: bool = False,
+) -> list[str]:
+    reasons: list[str] = []
+
+    if snapshot.vs_open_pct < 0:
+        reasons.append("시가 이탈 후 회복 실패")
+
+    if candidate.first_30min_low is not None and snapshot.current_price < candidate.first_30min_low:
+        reasons.append("첫 30분봉 저점 이탈")
+
+    if market_rank > 30:
+        reasons.append("거래대금 순위가 30위 밖으로 하락")
+
+    if theme_rank is None or theme_rank > 3:
+        reasons.append("테마 내 거래대금 3위 밖으로 하락")
+
+    high_ref = candidate.high_since_confirm or snapshot.high_price
+    drawdown = safe_ratio(high_ref - snapshot.current_price, high_ref) * 100
+    if drawdown > config.max_weakness_drawdown_percent:
+        reasons.append("고점 대비 하락률 5% 초과")
+
+    if _declining_five_minute_highs(snapshot.minute_bars_5m):
+        reasons.append("5분봉 고점이 연속해서 낮아짐")
+
+    breakdown = calculate_leader_score(snapshot, [snapshot], theme_follower_count=1 if theme_rank else 0, config=config)
+    if breakdown.total < config.confirmation_min_score:
+        reasons.append("점수가 75점 미만으로 하락")
+
+    if overtaken_by:
+        reasons.append("다른 종목이 거래대금과 상승률에서 대장주를 추월")
+
+    return reasons
+
+
+def check_recovery(
+    candidate: CandidateState,
+    snapshot: StockSnapshot,
+    market_rank: int,
+    theme_rank: int | None,
+    breakdown: ScoreBreakdown,
+    config: Config,
+) -> bool:
+    if snapshot.vs_open_pct < 0:
+        return False
+    if market_rank > config.confirmation_trading_value_rank:
+        return False
+    if theme_rank is None or theme_rank > 2:
+        return False
+    if breakdown.total < config.confirmation_min_score:
+        return False
+    return True
