@@ -41,8 +41,9 @@ def print_to_terminal(result: dict) -> str:
 
     lines.append("[주의] 본 추천은 교육 목적이며 투자 성과를 보장하지 않습니다.")
     text = "\n".join(lines)
-    encoding = sys.stdout.encoding or "utf-8"
-    print(text.encode(encoding, errors="replace").decode(encoding))
+    if sys.stdout is not None:
+        encoding = sys.stdout.encoding or "utf-8"
+        print(text.encode(encoding, errors="replace").decode(encoding))
     return text
 
 
