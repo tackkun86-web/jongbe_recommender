@@ -231,3 +231,37 @@ def check_recovery(
     if breakdown.total < config.confirmation_min_score:
         return False
     return True
+
+
+def detect_leader_change(
+    current_leader: CandidateState,
+    challenger: CandidateState,
+    current_leader_snapshot: StockSnapshot,
+    challenger_snapshot: StockSnapshot,
+    challenger_market_rank: int,
+    current_leader_market_rank: int,
+) -> tuple[bool, list[str]]:
+    reasons: list[str] = []
+
+    trading_value_ahead = challenger_snapshot.cum_trading_value > current_leader_snapshot.cum_trading_value
+    if trading_value_ahead:
+        reasons.append("신규 종목의 거래대금이 기존 대장주보다 많음")
+
+    change_pct_ahead = challenger_snapshot.change_pct > current_leader_snapshot.change_pct
+    if change_pct_ahead:
+        reasons.append("신규 종목의 상승률이 기존 대장주보다 높음")
+
+    holds_breakout = challenger_snapshot.vs_open_pct >= 0 and challenger_snapshot.current_price >= challenger_snapshot.high_price * 0.99
+    if holds_breakout:
+        reasons.append("신규 종목이 시가와 돌파선을 유지함")
+
+    is_superior_this_tick = trading_value_ahead and change_pct_ahead and holds_breakout
+
+    if is_superior_this_tick:
+        challenger.leader_change_streak += 1
+    else:
+        challenger.leader_change_streak = 0
+        return False, []
+
+    confirmed = challenger.leader_change_streak >= 3
+    return confirmed, reasons
