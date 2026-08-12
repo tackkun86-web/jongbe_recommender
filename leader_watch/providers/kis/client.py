@@ -122,3 +122,19 @@ class KisClient:
             },
         )
         return body.get("output", [])
+
+    def get_quote(self, code: str) -> dict:
+        """Current price/OHLC/cumulative-volume snapshot for a single stock code.
+
+        ASSUMPTION (verify against real KIS docs): TR_ID FHKST01010100,
+        path /uapi/domestic-stock/v1/quotations/inquire-price.
+        """
+        body = self._get(
+            "/uapi/domestic-stock/v1/quotations/inquire-price",
+            tr_id="FHKST01010100",
+            params={
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": code,
+            },
+        )
+        return body.get("output", {})
