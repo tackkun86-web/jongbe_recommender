@@ -97,3 +97,28 @@ class KisClient:
             },
         )
         return body.get("output", [])[:count]
+
+    def get_sector_ranking(self) -> list[dict]:
+        """All KRX sector (업종) names ranked by today's change percent.
+
+        Used as a theme substitute (no KIS endpoint returns 테마-level
+        groupings like 반도체/2차전지 with trading-value rank — see
+        docs/superpowers/specs/2026-08-12-real-provider-kis-design.md,
+        "테마 대체" section). Each stock's own sector name comes back on its
+        individual quote response (kis/client.py get_quote), and is looked
+        up against the rank map built from this endpoint's output.
+
+        ASSUMPTION (verify against real KIS docs): TR_ID FHPST01730000,
+        path /uapi/domestic-stock/v1/ranking/industry-fluctuation-rate.
+        """
+        body = self._get(
+            "/uapi/domestic-stock/v1/ranking/industry-fluctuation-rate",
+            tr_id="FHPST01730000",
+            params={
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": "0001",
+                "FID_DIV_CLS_CODE": "0",
+                "FID_RANK_SORT_CLS_CODE": "0",
+            },
+        )
+        return body.get("output", [])
