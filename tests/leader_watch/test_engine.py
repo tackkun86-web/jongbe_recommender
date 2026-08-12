@@ -18,6 +18,7 @@ def engine():
     cfg = load_config(env={})
     eng = Engine(provider=MockProvider(), notifier=ConsoleNotifier(), config=cfg, store=AlertStore(path))
     yield eng
+    eng.store.close()
     os.remove(path)
 
 
