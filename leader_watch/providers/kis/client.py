@@ -69,3 +69,31 @@ class KisClient:
         if body.get("rt_cd") != "0":
             raise KisApiError(f"KIS API call to {path} returned rt_cd={body.get('rt_cd')}: {body.get('msg1')}")
         return body
+
+    def get_trading_value_ranking(self, count: int) -> list[dict]:
+        """Top `count` KOSPI/KOSDAQ stocks ranked by today's cumulative trading value.
+
+        ASSUMPTION (verify against real KIS docs): TR_ID FHPST01710000,
+        path /uapi/domestic-stock/v1/quotations/volume-rank,
+        FID_BLNG_CLS_CODE="3" sorts by trading value (거래대금) rather than
+        volume. Returns raw KIS response rows unmodified — mapping into
+        StockSnapshot fields happens in kis/mapping.py.
+        """
+        body = self._get(
+            "/uapi/domestic-stock/v1/quotations/volume-rank",
+            tr_id="FHPST01710000",
+            params={
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_COND_SCR_DIV_CODE": "20171",
+                "FID_INPUT_ISCD": "0000",
+                "FID_DIV_CLS_CODE": "0",
+                "FID_BLNG_CLS_CODE": "3",
+                "FID_TRGT_CLS_CODE": "111111111",
+                "FID_TRGT_EXLS_CLS_CODE": "0000000000",
+                "FID_INPUT_PRICE_1": "",
+                "FID_INPUT_PRICE_2": "",
+                "FID_VOL_CNT": "",
+                "FID_INPUT_DATE_1": "",
+            },
+        )
+        return body.get("output", [])[:count]
