@@ -126,6 +126,26 @@ def build_scenarios() -> dict[str, list[StockSnapshot]]:
         ))
     scenarios["WEAK01"] = weak01
 
+    # 5b) WFOL01 — single-tick theme companion for WEAK01, added during Task 17
+    # integration testing. WEAK01 is the only "조선" stock in the scenario set, so
+    # engine._theme_follower_count(...) (which requires *another* code sharing the
+    # theme with change_pct >= 2.0) returns 0 for it at the 09:30 confirmation tick;
+    # evaluate_confirmation hard-blocks with "테마 내 후속 종목이 전혀 없음" whenever
+    # theme_follower_count == 0 (state_machine.py:151-152), exactly as already noted
+    # above for LEAD01/RANK01. Traced with the real engine: without this snapshot,
+    # WEAK01 never confirms at 09:30 and therefore never reaches MONITORING, so the
+    # weakening it's designed to demonstrate never fires either. A single tick at
+    # 09:30 (change_pct = +3.0% >= 2.0, same "조선" theme) is sufficient — it has no
+    # CandidateState of its own (never appears in an early-candidate tick), so the
+    # engine skips it entirely in every other phase and it never produces an alert.
+    scenarios["WFOL01"] = [
+        _snap("WFOL01", "조선동행주", "조선", 2, _t(9, 30),
+              current_price=10300, prev_close=10000, open_price=10100,
+              high_price=10350, low_price=10050,
+              cum_volume=120_000, cum_trading_value=120_000 * 10300,
+              market_trading_value_rank=20),
+    ]
+
     # 6) CHAL01 / CHAL02 — same theme, CHAL02 overtakes CHAL01 after 09:40 (leader change).
     chal01, chal02 = [], []
     for minute in range(0, 91, 5):
