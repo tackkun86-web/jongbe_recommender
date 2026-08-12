@@ -39,11 +39,21 @@ def build_scenarios() -> dict[str, list[StockSnapshot]]:
     scenarios: dict[str, list[StockSnapshot]] = {}
 
     # 1) LEAD01 — normal confirm, holds leadership through 10:30.
+    # NOTE: growth coefficient is 40 (not a slower rate like 8) so that by the first
+    # early-candidate tick (minute=6) price has already cleared both the +2% change_pct
+    # gate and the open_price=10200 vs_open_pct>=0 gate; a slower ramp leaves vs_open_pct
+    # negative through minute=18, which trips check_rejection's "2 consecutive open-breach"
+    # rule during VALIDATION and rejects LEAD01 before it ever reaches CONFIRMATION.
+    # NOTE: ticks are 1 minute apart (not 3) so that a poll 2 minutes after another still
+    # lands on a fresh (< engine.Config.stale_threshold_seconds old) tick — with 3-minute
+    # spacing, a poll landing between ticks replays a >=60s-stale snapshot that
+    # engine.run_once's is_stale() filter drops entirely, silently starving the
+    # early-candidate streak counter of its second observation.
     lead01 = []
     price = 10000
-    for minute in range(0, 91, 3):
+    for minute in range(0, 91, 1):
         t = _t(9, 0) + datetime.timedelta(minutes=minute)
-        price = 10000 + minute * 8
+        price = 10000 + minute * 40
         lead01.append(_snap(
             "LEAD01", "리딩전자", "반도체", 1, t,
             current_price=price, prev_close=10000, open_price=10200,
@@ -83,11 +93,15 @@ def build_scenarios() -> dict[str, list[StockSnapshot]]:
     scenarios["GAP01"] = gap01
 
     # 4) RANK01 — big trading value but rank falls outside top 30 by 09:30.
+    # theme is "반도체" (same as LEAD01) so LEAD01 has a theme_follower_count >= 1 at
+    # confirmation time; evaluate_confirmation hard-blocks with "테마 내 후속 종목이 전혀
+    # 없음" when theme_follower_count == 0, and LEAD01 was otherwise the only stock on
+    # this theme. RANK01's own rank-based rejection story is unaffected by its theme label.
     rank01 = []
     for minute in range(0, 40, 5):
         t = _t(9, 0) + datetime.timedelta(minutes=minute)
         rank01.append(_snap(
-            "RANK01", "순위이탈전자", "자동차", 2, t,
+            "RANK01", "순위이탈전자", "반도체", 2, t,
             current_price=10400, prev_close=10000, open_price=10100,
             high_price=10450, low_price=10050,
             cum_volume=180_000, cum_trading_value=180_000 * 10400,
