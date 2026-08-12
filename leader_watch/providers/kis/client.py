@@ -138,3 +138,24 @@ class KisClient:
             },
         )
         return body.get("output", {})
+
+    def get_minute_bars(self, code: str, reference_time: str) -> list[dict]:
+        """1-minute OHLCV bars for `code` up to `reference_time` (HHMMSS), most-recent first.
+
+        ASSUMPTION (verify against real KIS docs): TR_ID FHKST03010200,
+        path /uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice,
+        bar rows returned under the "output2" key (KIS convention: "output1"
+        holds per-request metadata, "output2" holds the time series).
+        """
+        body = self._get(
+            "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice",
+            tr_id="FHKST03010200",
+            params={
+                "FID_ETC_CLS_CODE": "",
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": code,
+                "FID_INPUT_HOUR_1": reference_time,
+                "FID_PW_DATA_INCU_YN": "N",
+            },
+        )
+        return body.get("output2", [])
