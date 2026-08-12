@@ -48,12 +48,21 @@ def leader_watch_main(argv: list[str]) -> int:
 
     engine = Engine(provider=provider, notifier=notifier, config=config, store=store)
 
-    if args.single_tick:
-        now = datetime.datetime.now(ZoneInfo(config.market_timezone)).replace(tzinfo=None)
-        engine.run_once(now)
-        return 0
-
-    engine.run()
+    try:
+        if args.single_tick:
+            now = datetime.datetime.now(ZoneInfo(config.market_timezone)).replace(tzinfo=None)
+            engine.run_once(now)
+        else:
+            engine.run()
+    except NotImplementedError as exc:
+        # `--provider real` is a stub until a real-time data source is wired up.
+        # Report it as a configuration problem instead of dumping a traceback.
+        print(
+            f"[leader_watch] 실시간 시세 제공자(RealProvider)가 아직 구현되지 않았습니다: {exc}\n"
+            "  --provider mock 으로 실행하거나 leader_watch/providers/real.py 를 구현하세요.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

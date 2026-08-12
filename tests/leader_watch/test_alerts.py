@@ -48,6 +48,7 @@ def test_confirmation_alert_never_says_final_leader():
     title, body = format_confirmation(
         _snapshot(), _breakdown(),
         extras={
+            "gap_tier": "정상",
             "rank_change_vs_0910": "5위 -> 3위 (개선)",
             "theme_follower_count": 3,
             "open_held": True, "first_high_held": True,
@@ -58,6 +59,17 @@ def test_confirmation_alert_never_says_final_leader():
     assert "당일 최종 주도주" not in body
     assert "오전 주도주로 1차 확정" in body
     assert "오후 장에서 주도권이 변경될 수 있음" in body
+    assert "갭 등급: 정상" in body
+
+
+def test_confirmation_alert_renders_gap_tier_for_high_risk_gap():
+    _, body = format_confirmation(_snapshot(), _breakdown(), extras={"gap_tier": "고위험"})
+    assert "갭 등급: 고위험" in body
+
+
+def test_confirmation_alert_falls_back_when_gap_tier_missing():
+    _, body = format_confirmation(_snapshot(), _breakdown(), extras={})
+    assert "갭 등급: 확인 불가" in body
 
 
 def test_weakness_alert_shows_before_after():

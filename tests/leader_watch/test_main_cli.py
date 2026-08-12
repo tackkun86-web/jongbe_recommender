@@ -33,3 +33,13 @@ def test_leader_watch_main_mock_provider_runs_single_tick_in_test_mode(mock_engi
     exit_code = leader_watch_main(["--provider", "mock", "--notifier", "console", "--single-tick"])
     assert exit_code == 0
     instance.run_once.assert_called_once()
+
+
+@patch("main.Engine")
+def test_leader_watch_main_reports_unimplemented_real_provider_without_traceback(mock_engine_cls, capsys):
+    mock_engine_cls.return_value.run_once.side_effect = NotImplementedError("RealProvider is not implemented yet")
+    exit_code = leader_watch_main(["--provider", "real", "--notifier", "console", "--single-tick"])
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "RealProvider" in err
+    assert "Traceback" not in err

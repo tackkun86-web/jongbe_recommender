@@ -62,6 +62,7 @@ def format_confirmation(snapshot: StockSnapshot, breakdown: ScoreBreakdown, extr
 등락률: {snapshot.change_pct:.2f}%
 시가 대비: {snapshot.vs_open_pct:.2f}%
 시초가 갭: {snapshot.gap_from_prev_close_pct:.2f}%
+갭 등급: {extras.get("gap_tier", "확인 불가")}
 
 누적 거래대금: {snapshot.cum_trading_value / 1e8:.1f}억 원
 거래대금 순위: {snapshot.market_trading_value_rank}위
