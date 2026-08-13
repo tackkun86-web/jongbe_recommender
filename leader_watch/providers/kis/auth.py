@@ -31,15 +31,21 @@ class KisAuth:
         return self._access_token
 
     def _refresh(self) -> None:
-        response = requests.post(
-            f"{self._config.base_url}{_TOKEN_PATH}",
-            json={
-                "grant_type": "client_credentials",
-                "appkey": self._config.app_key,
-                "appsecret": self._config.app_secret,
-            },
-            timeout=10,
-        )
+        try:
+            response = requests.post(
+                f"{self._config.base_url}{_TOKEN_PATH}",
+                json={
+                    "grant_type": "client_credentials",
+                    "appkey": self._config.app_key,
+                    "appsecret": self._config.app_secret,
+                },
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            # Normalize network-level failures (timeouts, connection errors)
+            # to KisAuthError so callers see one consistent exception type
+            # instead of a raw `requests` exception escaping.
+            raise KisAuthError(f"KIS token request failed: {exc}") from exc
         if response.status_code != 200:
             raise KisAuthError(f"KIS token request failed with status {response.status_code}: {response.text}")
         body = response.json()

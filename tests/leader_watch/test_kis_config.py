@@ -47,3 +47,28 @@ def test_base_url_for_real_env():
 def test_base_url_for_paper_env():
     cfg = load_kis_config(env={"KIS_APP_KEY": "key", "KIS_APP_SECRET": "secret", "KIS_ENV": "paper"})
     assert cfg.base_url == "https://openapivts.koreainvestment.com:29443"
+
+
+def test_non_numeric_universe_size_raises_kis_config_error_not_bare_value_error():
+    with pytest.raises(KisConfigError):
+        load_kis_config(env={"KIS_APP_KEY": "key", "KIS_APP_SECRET": "secret", "KIS_UNIVERSE_SIZE": "abc"})
+
+
+def test_non_numeric_ranking_refresh_seconds_raises_kis_config_error_not_bare_value_error():
+    with pytest.raises(KisConfigError):
+        load_kis_config(env={"KIS_APP_KEY": "key", "KIS_APP_SECRET": "secret", "KIS_RANKING_REFRESH_SECONDS": "abc"})
+
+
+def test_non_numeric_max_requests_per_second_raises_kis_config_error_not_bare_value_error():
+    with pytest.raises(KisConfigError):
+        load_kis_config(env={"KIS_APP_KEY": "key", "KIS_APP_SECRET": "secret", "KIS_MAX_REQUESTS_PER_SECOND": "abc"})
+
+
+def test_zero_max_requests_per_second_raises_kis_config_error_not_zero_division_error():
+    with pytest.raises(KisConfigError):
+        load_kis_config(env={"KIS_APP_KEY": "key", "KIS_APP_SECRET": "secret", "KIS_MAX_REQUESTS_PER_SECOND": "0"})
+
+
+def test_negative_universe_size_raises_kis_config_error():
+    with pytest.raises(KisConfigError):
+        load_kis_config(env={"KIS_APP_KEY": "key", "KIS_APP_SECRET": "secret", "KIS_UNIVERSE_SIZE": "-5"})

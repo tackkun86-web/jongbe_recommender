@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from leader_watch.providers.kis.auth import KisAuth, KisAuthError
 from leader_watch.providers.kis.config import KisConfig
 
@@ -61,6 +62,22 @@ def test_missing_fields_in_response_raises_kis_auth_error(mock_post):
     resp = MagicMock(status_code=200)
     resp.json.return_value = {"token_type": "Bearer"}
     mock_post.return_value = resp
+    auth = KisAuth(CFG, now_fn=lambda: 1000.0)
+    with pytest.raises(KisAuthError):
+        auth.get_token()
+
+
+@patch("leader_watch.providers.kis.auth.requests.post")
+def test_network_timeout_raises_kis_auth_error_not_raw_requests_exception(mock_post):
+    mock_post.side_effect = requests.exceptions.Timeout("connection timed out")
+    auth = KisAuth(CFG, now_fn=lambda: 1000.0)
+    with pytest.raises(KisAuthError):
+        auth.get_token()
+
+
+@patch("leader_watch.providers.kis.auth.requests.post")
+def test_connection_error_raises_kis_auth_error_not_raw_requests_exception(mock_post):
+    mock_post.side_effect = requests.exceptions.ConnectionError("connection refused")
     auth = KisAuth(CFG, now_fn=lambda: 1000.0)
     with pytest.raises(KisAuthError):
         auth.get_token()

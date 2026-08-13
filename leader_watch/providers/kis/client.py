@@ -51,18 +51,27 @@ class KisClient:
     def _get(self, path: str, tr_id: str, params: dict) -> dict:
         self._rate_limiter.wait()
         token = self._auth.get_token()
-        response = requests.get(
-            f"{self._config.base_url}{path}",
-            headers={
-                "authorization": f"Bearer {token}",
-                "appkey": self._config.app_key,
-                "appsecret": self._config.app_secret,
-                "tr_id": tr_id,
-                "custtype": "P",
-            },
-            params=params,
-            timeout=10,
-        )
+        try:
+            response = requests.get(
+                f"{self._config.base_url}{path}",
+                headers={
+                    "authorization": f"Bearer {token}",
+                    "appkey": self._config.app_key,
+                    "appsecret": self._config.app_secret,
+                    "tr_id": tr_id,
+                    "custtype": "P",
+                },
+                params=params,
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            # Network-level failures (timeouts, connection errors) must be
+            # normalized to KisApiError so leader_watch/providers/real.py's
+            # `except KisApiError:` per-code handling (and call_with_retry's
+            # retry loop) can catch them the same way as an HTTP-level
+            # failure — a raw `requests` exception would otherwise escape
+            # and kill the whole tick.
+            raise KisApiError(f"KIS API call to {path} failed: {exc}") from exc
         if response.status_code != 200:
             raise KisApiError(f"KIS API call to {path} failed with status {response.status_code}: {response.text}")
         body = response.json()

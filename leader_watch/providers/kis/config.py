@@ -33,6 +33,23 @@ _DEFAULTS = {
 }
 
 
+def _parse_positive_int(name: str, raw_value: str) -> int:
+    """Parse an env var into a positive int, raising KisConfigError (not a bare
+    ValueError/ZeroDivisionError-later) on anything malformed. main.py only
+    catches KisConfigError around RealProvider() construction, so a bare
+    ValueError here would leak a traceback instead of a clean error message —
+    and a non-positive `max_requests_per_second` would later cause a
+    ZeroDivisionError in kis/client.py's `_RateLimiter.__init__`
+    (`1.0 / max_requests_per_second`)."""
+    try:
+        value = int(raw_value)
+    except ValueError:
+        raise KisConfigError(f"{name} must be an integer, got {raw_value!r}") from None
+    if value <= 0:
+        raise KisConfigError(f"{name} must be a positive integer, got {value}")
+    return value
+
+
 def load_kis_config(env: dict | None = None) -> KisConfig:
     source = os.environ if env is None else env
     get = lambda key: source.get(key, _DEFAULTS.get(key, ""))  # noqa: E731
@@ -53,7 +70,11 @@ def load_kis_config(env: dict | None = None) -> KisConfig:
         app_key=app_key,
         app_secret=app_secret,
         env=kis_env,
-        universe_size=int(get("KIS_UNIVERSE_SIZE")),
-        ranking_refresh_seconds=int(get("KIS_RANKING_REFRESH_SECONDS")),
-        max_requests_per_second=int(get("KIS_MAX_REQUESTS_PER_SECOND")),
+        universe_size=_parse_positive_int("KIS_UNIVERSE_SIZE", get("KIS_UNIVERSE_SIZE")),
+        ranking_refresh_seconds=_parse_positive_int(
+            "KIS_RANKING_REFRESH_SECONDS", get("KIS_RANKING_REFRESH_SECONDS")
+        ),
+        max_requests_per_second=_parse_positive_int(
+            "KIS_MAX_REQUESTS_PER_SECOND", get("KIS_MAX_REQUESTS_PER_SECOND")
+        ),
     )

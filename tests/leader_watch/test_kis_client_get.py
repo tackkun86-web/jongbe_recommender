@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from leader_watch.providers.kis.client import KisApiError, KisClient
 from leader_watch.providers.kis.config import KisConfig
 
@@ -61,3 +62,19 @@ def test_rate_limiter_sleeps_between_rapid_calls(mock_get, mock_sleep):
     client._get("/p", tr_id="X", params={})
     client._get("/p", tr_id="X", params={})
     assert mock_sleep.call_count >= 1
+
+
+@patch("leader_watch.providers.kis.client.requests.get")
+def test_get_network_timeout_raises_kis_api_error_not_raw_requests_exception(mock_get):
+    mock_get.side_effect = requests.exceptions.Timeout("connection timed out")
+    client = KisClient(CFG, _FakeAuth())
+    with pytest.raises(KisApiError):
+        client._get("/some/path", tr_id="X", params={})
+
+
+@patch("leader_watch.providers.kis.client.requests.get")
+def test_get_connection_error_raises_kis_api_error_not_raw_requests_exception(mock_get):
+    mock_get.side_effect = requests.exceptions.ConnectionError("connection refused")
+    client = KisClient(CFG, _FakeAuth())
+    with pytest.raises(KisApiError):
+        client._get("/some/path", tr_id="X", params={})
