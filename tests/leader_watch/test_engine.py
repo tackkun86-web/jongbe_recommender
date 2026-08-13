@@ -251,10 +251,15 @@ def test_run_loop_survives_a_provider_error_and_keeps_polling(engine, capsys):
     assert "폴링 중 오류 발생" in capsys.readouterr().err
 
 
-def test_run_loop_reraises_not_implemented_provider(engine):
-    from leader_watch.providers.real import RealProvider
+class _NotImplementedProvider:
+    """Minimal provider double whose get_snapshot always raises NotImplementedError."""
 
-    engine.provider = RealProvider()
+    def get_snapshot(self, *args, **kwargs):
+        raise NotImplementedError("provider not implemented")
+
+
+def test_run_loop_reraises_not_implemented_provider(engine):
+    engine.provider = _NotImplementedProvider()
     engine.config = replace(engine.config, poll_interval_seconds=0)
     engine._now = lambda: datetime.datetime(2026, 8, 11, 9, 30, 1)
 

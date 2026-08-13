@@ -35,11 +35,14 @@ def test_leader_watch_main_mock_provider_runs_single_tick_in_test_mode(mock_engi
     instance.run_once.assert_called_once()
 
 
-@patch("main.Engine")
-def test_leader_watch_main_reports_unimplemented_real_provider_without_traceback(mock_engine_cls, capsys):
-    mock_engine_cls.return_value.run_once.side_effect = NotImplementedError("RealProvider is not implemented yet")
+from leader_watch.providers.kis.config import KisConfigError
+
+
+def test_leader_watch_main_reports_missing_kis_credentials_without_traceback(monkeypatch, capsys):
+    monkeypatch.delenv("KIS_APP_KEY", raising=False)
+    monkeypatch.delenv("KIS_APP_SECRET", raising=False)
     exit_code = leader_watch_main(["--provider", "real", "--notifier", "console", "--single-tick"])
+    captured = capsys.readouterr()
     assert exit_code == 1
-    err = capsys.readouterr().err
-    assert "RealProvider" in err
-    assert "Traceback" not in err
+    assert "KIS_APP_KEY" in captured.err or "KIS" in captured.err
+    assert "Traceback" not in captured.err

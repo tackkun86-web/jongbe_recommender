@@ -21,6 +21,7 @@ from leader_watch.engine import Engine
 from leader_watch.notifiers.console import ConsoleNotifier
 from leader_watch.notifiers.telegram import TelegramNotifier
 from leader_watch.providers.mock import MockProvider
+from leader_watch.providers.kis.config import KisConfigError
 from leader_watch.providers.real import RealProvider
 from leader_watch.store import AlertStore
 
@@ -42,7 +43,12 @@ def leader_watch_main(argv: list[str]) -> int:
     args = build_arg_parser().parse_args(argv)
     config = load_config()
 
-    provider = MockProvider() if args.provider == "mock" else RealProvider()
+    try:
+        provider = MockProvider() if args.provider == "mock" else RealProvider()
+    except KisConfigError as exc:
+        print(f"[leader_watch] {exc}", file=sys.stderr)
+        return 1
+
     notifier = ConsoleNotifier() if args.notifier == "console" else TelegramNotifier(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
     store = AlertStore(config.db_path)
 
@@ -55,11 +61,10 @@ def leader_watch_main(argv: list[str]) -> int:
         else:
             engine.run()
     except NotImplementedError as exc:
-        # `--provider real` is a stub until a real-time data source is wired up.
-        # Report it as a configuration problem instead of dumping a traceback.
+        # A provider explicitly signaled it isn't wired up yet.
         print(
-            f"[leader_watch] 실시간 시세 제공자(RealProvider)가 아직 구현되지 않았습니다: {exc}\n"
-            "  --provider mock 으로 실행하거나 leader_watch/providers/real.py 를 구현하세요.",
+            f"[leader_watch] 실시간 시세 제공자가 아직 구현되지 않았습니다: {exc}\n"
+            "  --provider mock 으로 실행하거나 해당 provider를 구현하세요.",
             file=sys.stderr,
         )
         return 1
