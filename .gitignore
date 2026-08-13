@@ -5,4 +5,3 @@ output/*.json
 output/*.md
 logs/*.log
 input/nxt_signals.json
-leader_watch/data/*.db
