@@ -56,6 +56,12 @@ python run_daily_scheduler.py
 | STALE_THRESHOLD_SECONDS | 30 | 데이터 지연 판단 기준(초, 스펙 외 추가 설정) |
 | SCORE_RENOTIFY_DELTA | 10 | 점수 변화 시 예외 재알림 기준(스펙 외 추가 설정) |
 | LEADER_WATCH_DB_PATH | leader_watch/data/alerts.db | 알림 이력 SQLite 경로(스펙 외 추가 설정) |
+| KIS_APP_KEY | (없음, 필수) | KIS Developers API 앱키 (--provider real 사용 시 필수) |
+| KIS_APP_SECRET | (없음, 필수) | KIS Developers API 앱시크릿 (--provider real 사용 시 필수) |
+| KIS_ENV | real | KIS 계정 환경 (real=실전투자, paper=모의투자) |
+| KIS_UNIVERSE_SIZE | 100 | 거래대금 상위 몇 종목까지 추적할지 |
+| KIS_RANKING_REFRESH_SECONDS | 20 | 거래대금/업종 순위 갱신 주기(초) |
+| KIS_MAX_REQUESTS_PER_SECOND | 15 | KIS API 초당 최대 호출 수 (보수적 기본값, 계정 등급에 맞춰 조정) |
 
 ### 휴장일 캘린더 갱신
 
@@ -72,9 +78,18 @@ pytest -v                        # 전체 (기존 배치 포함)
 
 ### TODO / 실 데이터 연동 필요 사항
 
-- `leader_watch/providers/real.py`의 `RealProvider`는 아직 구현되지 않았습니다.
-  실시간 1분봉/5분봉/체결강도/거래대금순위를 제공하는 증권사 API(예: 한국투자증권
-  Open API 등)를 선정한 뒤, 해당 클래스를 구현해야 `--provider real`이 동작합니다.
+- `leader_watch/providers/real.py`의 `RealProvider`는 한국투자증권(KIS) Developers
+  Open API로 구현되어 있습니다 (`.env`에 `KIS_APP_KEY`/`KIS_APP_SECRET` 설정 필요).
+  단, 정확한 TR_ID/필드명 일부는 검증되지 않은 가정입니다 — 자세한 내용은
+  `docs/superpowers/specs/2026-08-12-real-provider-kis-design.md`의
+  "구현 중 반드시 검증해야 할 가정" 절 및 `leader_watch/providers/kis/mapping.py`의
+  주석을 참고하세요. 20일 동시간대 평균 거래대금/거래량과 당일 뉴스/공시 감지는
+  이번 범위에 포함되지 않았습니다(아래 항목 참고).
+- `avg_trading_value_same_time_20d`/`avg_volume_same_time_20d`(20일 동시간대 평균
+  거래대금/거래량)는 `RealProvider`에서 항상 `None`으로 채워집니다 — 점수 가산
+  로직이 자동으로 건너뛰므로 시스템은 정상 동작하지만, 5배/3배 이상 거래대금 증가
+  가산점은 받을 수 없습니다. 별도 작업으로 일봉 시세 조회 API 기반 계산 로직을
+  추가해야 합니다.
 - 10:30 이후 "새로운 주도 테마 변화"에 대한 별도 알림 로직은 이번 범위에 포함되지
   않았습니다 (기존 확정 종목 상태 유지만 수행).
 - 당일 뉴스/공시 데이터는 MockProvider 시나리오에 하드코딩되어 있으며, 실제
