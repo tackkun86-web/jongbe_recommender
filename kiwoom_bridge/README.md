@@ -5,14 +5,18 @@
 
 ## 실행
 
-1. 키움 OpenAPI+ 로그인 프로그램으로 로그인합니다 (기존에 사용하던 방식 그대로).
-2. 같은 32비트 Python 환경에서:
+1. 같은 32비트 Python 환경에서:
    ```
    set KIWOOM_BRIDGE_PORT=8000
    set KIWOOM_BRIDGE_TOKEN=<메인 앱 .env 의 KIWOOM_BRIDGE_TOKEN 과 동일한 값>
    python bridge.py
    ```
-3. `[kiwoom_bridge] listening on http://127.0.0.1:8000` 로그가 뜨면 준비 완료입니다.
+   `bridge.py`를 실행하면 `KiwoomTrClient` 생성 시점에 키움 OpenAPI+ 로그인
+   창이 자동으로 뜹니다. 창이 나타나면 ID/비밀번호/공동인증서로 평소처럼
+   로그인하세요 — `OnEventConnect`로 로그인 성공이 확인된 뒤에 브릿지가
+   HTTP 요청을 받기 시작합니다. 로그인 창이 뜨지 않거나 30초 안에 로그인이
+   완료되지 않으면 브릿지가 오류를 내며 종료됩니다.
+2. `[kiwoom_bridge] listening on http://127.0.0.1:8000` 로그가 뜨면 준비 완료입니다.
 
 ## 수동 테스트 절차
 
