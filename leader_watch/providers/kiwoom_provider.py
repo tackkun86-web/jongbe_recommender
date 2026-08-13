@@ -158,6 +158,15 @@ class KiwoomProvider(MarketDataProvider):
             bars_1m_full = self._bars_1m.get(code, [])
             # Bounded COPY, never the live cached list — see _MINUTE_BAR_WINDOW above.
             snapshot.minute_bars_1m = list(bars_1m_full[-_MINUTE_BAR_WINDOW:])
+            # `minute_bars_5m` intentionally aggregates over the FULL per-code
+            # 1m-bar cache, not the bounded window above: state_machine's
+            # `_declining_five_minute_highs` needs multiple completed 5-minute
+            # candles to detect a decline, and unlike minute_bars_1m,
+            # minute_bars_5m is never concatenated across engine.history by
+            # scoring.py, so there is no O(n^2) blowup risk here (same as
+            # RealProvider/real.py, which this KiwoomProvider ported the
+            # aggregation logic from). `_aggregate_5m` always builds and
+            # returns a fresh list, so there is no aliasing risk either.
             snapshot.minute_bars_5m = _aggregate_5m(bars_1m_full)
             snapshots.append(snapshot)
 
