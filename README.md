@@ -97,6 +97,14 @@ pytest -v                        # 전체 (기존 배치 포함)
   `docs/superpowers/specs/2026-08-13-kiwoom-provider-design.md`를 참고하세요.
   20일 동시간대 평균 거래대금/거래량과 당일 뉴스/공시 감지는 이번 범위에
   포함되지 않았습니다 (KIS 연동과 동일).
+- `--provider kiwoom`에서는 `execution_strength`(체결강도)가 항상 `100.0`
+  (중립값)으로 고정됩니다 — `kiwoom_bridge/tr_client.py`의 `get_quote`가 사용하는
+  기본 시세 조회 TR(`opt10001`)에는 체결강도 필드가 포함되어 있지 않아
+  `kiwoom/mapping.py`의 `quote_to_snapshot`이 기본값을 채우기 때문입니다. 그 결과
+  `state_machine.py`의 갭 상승률 초과 + 체결강도 약세 거부 로직
+  (`gap > config.max_gap_percent and snapshot.execution_strength < 100`)은
+  이 provider에서는 절대 발동하지 않습니다. 실제 체결강도 TR 필드가 확인되면
+  `tr_client.py`에 추가해야 합니다.
 - `avg_trading_value_same_time_20d`/`avg_volume_same_time_20d`(20일 동시간대 평균
   거래대금/거래량)는 `RealProvider`에서 항상 `None`으로 채워집니다 — 점수 가산
   로직이 자동으로 건너뛰므로 시스템은 정상 동작하지만, 5배/3배 이상 거래대금 증가
