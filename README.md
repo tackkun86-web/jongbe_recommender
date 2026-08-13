@@ -62,6 +62,10 @@ python run_daily_scheduler.py
 | KIS_UNIVERSE_SIZE | 100 | 거래대금 상위 몇 종목까지 추적할지 |
 | KIS_RANKING_REFRESH_SECONDS | 20 | 거래대금/업종 순위 갱신 주기(초) |
 | KIS_MAX_REQUESTS_PER_SECOND | 15 | KIS API 초당 최대 호출 수 (보수적 기본값, 계정 등급에 맞춰 조정) |
+| KIWOOM_BRIDGE_URL | http://127.0.0.1:8000 | kiwoom_bridge 프로세스 주소 (--provider kiwoom 사용 시) |
+| KIWOOM_BRIDGE_TOKEN | (없음, 필수) | kiwoom_bridge와 공유하는 인증 토큰 (--provider kiwoom 사용 시 필수) |
+| KIWOOM_UNIVERSE_SIZE | 100 | 거래대금 상위 몇 종목까지 추적할지 (kiwoom_bridge 경유) |
+| KIWOOM_RANKING_REFRESH_SECONDS | 20 | 거래대금/업종 순위 갱신 주기(초) (kiwoom_bridge 경유) |
 
 ### 휴장일 캘린더 갱신
 
@@ -85,6 +89,14 @@ pytest -v                        # 전체 (기존 배치 포함)
   "구현 중 반드시 검증해야 할 가정" 절 및 `leader_watch/providers/kis/mapping.py`의
   주석을 참고하세요. 20일 동시간대 평균 거래대금/거래량과 당일 뉴스/공시 감지는
   이번 범위에 포함되지 않았습니다(아래 항목 참고).
+- `leader_watch/providers/kiwoom_provider.py`의 `KiwoomProvider`는 별도의
+  32비트 `kiwoom_bridge` 프로세스(키움증권 OpenAPI+)를 통해 동작합니다.
+  `kiwoom_bridge/README.md`에 따라 32비트 환경에서 `kiwoom_bridge/bridge.py`를
+  먼저 실행한 뒤 `--provider kiwoom`을 사용하세요. `kiwoom_bridge/tr_client.py`의
+  TR코드/필드명은 검증되지 않은 가정입니다 — 자세한 내용은
+  `docs/superpowers/specs/2026-08-13-kiwoom-provider-design.md`를 참고하세요.
+  20일 동시간대 평균 거래대금/거래량과 당일 뉴스/공시 감지는 이번 범위에
+  포함되지 않았습니다 (KIS 연동과 동일).
 - `avg_trading_value_same_time_20d`/`avg_volume_same_time_20d`(20일 동시간대 평균
   거래대금/거래량)는 `RealProvider`에서 항상 `None`으로 채워집니다 — 점수 가산
   로직이 자동으로 건너뛰므로 시스템은 정상 동작하지만, 5배/3배 이상 거래대금 증가
