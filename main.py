@@ -23,6 +23,8 @@ from leader_watch.notifiers.telegram import TelegramNotifier
 from leader_watch.providers.mock import MockProvider
 from leader_watch.providers.kis.config import KisConfigError
 from leader_watch.providers.real import RealProvider
+from leader_watch.providers.kiwoom.config import KiwoomConfigError
+from leader_watch.providers.kiwoom_provider import KiwoomProvider
 from leader_watch.store import AlertStore
 
 try:
@@ -33,7 +35,7 @@ except ImportError:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="09:00-10:30 morning leader-stock watch system")
-    parser.add_argument("--provider", choices=["mock", "real"], default="mock")
+    parser.add_argument("--provider", choices=["mock", "real", "kiwoom"], default="mock")
     parser.add_argument("--notifier", choices=["console", "telegram"], default="console")
     parser.add_argument("--single-tick", action="store_true", help="run exactly one poll and exit (used by tests/manual checks)")
     return parser
@@ -44,8 +46,13 @@ def leader_watch_main(argv: list[str]) -> int:
     config = load_config()
 
     try:
-        provider = MockProvider() if args.provider == "mock" else RealProvider()
-    except KisConfigError as exc:
+        if args.provider == "mock":
+            provider = MockProvider()
+        elif args.provider == "real":
+            provider = RealProvider()
+        else:
+            provider = KiwoomProvider()
+    except (KisConfigError, KiwoomConfigError) as exc:
         print(f"[leader_watch] {exc}", file=sys.stderr)
         return 1
 

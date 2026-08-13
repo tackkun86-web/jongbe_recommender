@@ -61,3 +61,21 @@ def test_leader_watch_main_reports_not_implemented_provider_without_traceback(mo
     assert exit_code == 1
     assert "some provider message" in captured.err
     assert "Traceback" not in captured.err
+
+
+from leader_watch.providers.kiwoom.config import KiwoomConfigError
+
+
+def test_arg_parser_accepts_kiwoom_provider():
+    parser = build_arg_parser()
+    args = parser.parse_args(["--provider", "kiwoom"])
+    assert args.provider == "kiwoom"
+
+
+def test_leader_watch_main_reports_missing_kiwoom_bridge_token_without_traceback(monkeypatch, capsys):
+    monkeypatch.delenv("KIWOOM_BRIDGE_TOKEN", raising=False)
+    exit_code = leader_watch_main(["--provider", "kiwoom", "--notifier", "console", "--single-tick"])
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "KIWOOM_BRIDGE_TOKEN" in captured.err or "KIWOOM" in captured.err
+    assert "Traceback" not in captured.err
