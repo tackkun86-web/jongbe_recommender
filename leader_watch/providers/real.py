@@ -35,6 +35,32 @@ from leader_watch.providers.kis.mapping import (
 # until a real account confirms otherwise.
 _MARKET = "KOSPI"
 
+# Bounded window for the per-tick `snapshot.minute_bars_1m` handed out below.
+#
+# `minute_bars_1m` must satisfy two downstream contracts this module cannot
+# change (leader_watch/scoring.py and leader_watch/state_machine.py are both
+# read-only):
+#   - scoring.py's `_minute_flow_points` concatenates `snap.minute_bars_1m`
+#     across every snapshot in `engine.history` for a code (it was written
+#     assuming MockProvider puts exactly one bar per snapshot — see
+#     leader_watch/providers/mock_scenarios.py). If every snapshot instead
+#     carried the FULL cumulative per-code bar history (as this module did
+#     before this fix), that concatenation becomes O(ticks^2) work per code
+#     per tick at steady state, and since it was also the SAME mutable list
+#     object handed out every tick, past snapshots would retroactively
+#     "gain" future bars (aliasing bug).
+#   - state_machine.py reads `snapshot.minute_bars_1m` directly on a single
+#     snapshot and needs at least 2 bars within that one snapshot for its
+#     장대음봉 (long bearish candle) rejection/weakness checks.
+#
+# A small fixed window satisfies both: state_machine gets >=2 bars as soon
+# as 2 minutes of data exist, and scoring's per-tick concatenation cost
+# becomes O(history_length * _MINUTE_BAR_WINDOW) = linear, not quadratic.
+# Each snapshot below gets its own COPY of this window (never the live
+# cached list), so old snapshots can no longer be mutated by future ticks.
+# 5 was picked to match the 5-bar 5m-aggregation grouping size below.
+_MINUTE_BAR_WINDOW = 5
+
 
 def _aggregate_5m(bars_1m: list[MinuteBar]) -> list[MinuteBar]:
     """Group a chronological list of 1-minute bars into completed 5-minute candles."""
@@ -56,6 +82,28 @@ def _aggregate_5m(bars_1m: list[MinuteBar]) -> list[MinuteBar]:
 
 
 class RealProvider(MarketDataProvider):
+    """RealProvider — thin orchestrator over the KIS Developers API client.
+
+    Note on snapshot timestamp / staleness: every `StockSnapshot` produced by
+    `get_snapshot(now)` is stamped with `timestamp=now` (the tick's own poll
+    time), not a KIS-supplied trade timestamp. This is intentional, not an
+    oversight: the KIS `inquire-price` quote endpoint used here
+    (kis/mapping.py's `quote_to_snapshot`) does not carry a field that is
+    both reliably present and usable as a genuine per-code observation time
+    across this whole flow (see the design doc's "구현 중 반드시 검증해야 할
+    가정" section — no such field was confirmed). Because this provider polls
+    synchronously and quote data for a code is fetched at essentially the
+    moment `now` is stamped, `now` IS an honest observation time for this
+    provider's architecture — unlike, say, an async push-feed provider where
+    "poll time" and "data time" could genuinely diverge.
+    One consequence: `leader_watch/engine.py`'s `is_stale(snapshot, now,
+    config)` staleness check compares `now` against `snapshot.timestamp`,
+    which for RealProvider is always the same `now` — so staleness detection
+    is a structural no-op for this provider. This is a known, accepted
+    limitation of this synchronous-poll architecture, not a bug to silently
+    paper over with a fabricated timestamp from a field that doesn't exist.
+    """
+
     def __init__(self, config: KisConfig | None = None) -> None:
         self._config = config or load_kis_config()
         self._auth = KisAuth(self._config)
@@ -96,8 +144,15 @@ class RealProvider(MarketDataProvider):
         current_minute = (now.hour, now.minute)
         if self._last_bar_minute.get(code) == current_minute:
             return
+        # Request the PREVIOUS completed minute, not `now`'s own minute. At
+        # the first tick of a new minute, `now`'s minute has barely started
+        # (maybe 0-2 seconds of trades), so asking KIS for bars up to
+        # `now`'s own HHMMSS would return a near-empty partial candle that
+        # then pollutes volume-based heuristics downstream. `now - 1 minute`
+        # is always a fully-formed, completed 1-minute candle.
+        reference_time = (now - datetime.timedelta(minutes=1)).strftime("%H%M%S")
         try:
-            rows = call_with_retry(lambda: self._client.get_minute_bars(code, now.strftime("%H%M%S")))
+            rows = call_with_retry(lambda: self._client.get_minute_bars(code, reference_time))
         except KisApiError:
             return
         if not rows:
@@ -113,25 +168,43 @@ class RealProvider(MarketDataProvider):
         snapshots: list[StockSnapshot] = []
         for code, name, rank in self._ranking_cache:
             try:
+                # `received_at=now` intentionally IS the observed time here (see
+                # class docstring "Note on snapshot timestamp / staleness" above):
+                # this is a synchronous poll, so `now` is when this code's data
+                # was actually fetched, not a placeholder.
                 quote = call_with_retry(lambda code=code: self._client.get_quote(code))
-            except KisApiError:
+                snapshot = quote_to_snapshot(
+                    quote,
+                    code=code,
+                    name=name,
+                    market=_MARKET,
+                    received_at=now,
+                    market_rank=rank,
+                    theme_rank_by_sector=self._sector_rank_cache,
+                )
+            except (KisApiError, KeyError, ValueError, TypeError):
+                # Partial-failure tolerance (design doc "부분 실패 허용"): a bad
+                # or partial quote for one code (KisApiError from the HTTP call,
+                # or KeyError/ValueError/TypeError from mapping.py's
+                # `quote_to_snapshot` when the KIS response is missing required
+                # fields / has malformed data) must not abort the whole tick —
+                # skip just this code and keep going.
                 continue
 
             self._update_minute_bar(code, now)
-            bars_1m = self._bars_1m.get(code, [])
-            bars_5m = _aggregate_5m(bars_1m)
-
-            snapshot = quote_to_snapshot(
-                quote,
-                code=code,
-                name=name,
-                market=_MARKET,
-                received_at=now,
-                market_rank=rank,
-                theme_rank_by_sector=self._sector_rank_cache,
-            )
-            snapshot.minute_bars_1m = bars_1m
-            snapshot.minute_bars_5m = bars_5m
+            bars_1m_full = self._bars_1m.get(code, [])
+            # See `_MINUTE_BAR_WINDOW` above: hand out a bounded COPY, never the
+            # live cached list.
+            snapshot.minute_bars_1m = list(bars_1m_full[-_MINUTE_BAR_WINDOW:])
+            # `minute_bars_5m` intentionally aggregates over the FULL per-code
+            # 1m-bar cache, not the bounded window above: state_machine's
+            # `_declining_five_minute_highs` needs multiple completed 5-minute
+            # candles to detect a decline, and unlike minute_bars_1m,
+            # minute_bars_5m is never concatenated across engine.history by
+            # scoring.py, so there is no O(n^2) blowup risk here. `_aggregate_5m`
+            # always builds and returns a fresh list, so there is no aliasing
+            # risk either.
+            snapshot.minute_bars_5m = _aggregate_5m(bars_1m_full)
             snapshots.append(snapshot)
 
         return snapshots

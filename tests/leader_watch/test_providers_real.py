@@ -149,3 +149,68 @@ def test_constructor_uses_load_kis_config_when_no_config_given(monkeypatch):
     monkeypatch.setenv("KIS_APP_SECRET", "envsecret")
     provider = RealProvider()
     assert provider._config.app_key == "envkey"
+
+
+def test_get_snapshot_does_not_alias_minute_bars_across_ticks():
+    """Regression test for the aliasing bug: a snapshot returned on tick 1
+    must NOT retroactively grow when more bars are appended on tick 2 — each
+    snapshot must own a bounded COPY of the minute-bar window, not a
+    reference to the live, ever-growing cached list."""
+    provider, client = _provider_with_fake_client()
+    snap_tick1 = provider.get_snapshot(datetime.datetime(2026, 8, 12, 9, 30, 0))[0]
+    len_after_tick1 = len(snap_tick1.minute_bars_1m)
+    assert len_after_tick1 == 1
+
+    provider.get_snapshot(datetime.datetime(2026, 8, 12, 9, 31, 0))
+
+    # The tick-1 snapshot object must be unaffected by tick 2's new bar.
+    assert len(snap_tick1.minute_bars_1m) == len_after_tick1
+
+
+def test_get_snapshot_minute_bars_1m_is_bounded_to_window():
+    provider, client = _provider_with_fake_client()
+    now = datetime.datetime(2026, 8, 12, 9, 30, 0)
+    for extra_minute in range(8):  # accumulate 8 bars (> the bounded window)
+        client.minute_bar_by_code["005930"] = [
+            {
+                "stck_cntg_hour": (now + datetime.timedelta(minutes=extra_minute)).strftime("%H%M%S"),
+                "stck_oprc": "70000", "stck_hgpr": "70200", "stck_lwpr": "69900",
+                "stck_prpr": "70100", "cntg_vol": "12345",
+            }
+        ]
+        snapshots = provider.get_snapshot(now + datetime.timedelta(minutes=extra_minute))
+    assert len(snapshots[0].minute_bars_1m) == 5  # bounded window, not all 8 accumulated bars
+
+
+def test_get_snapshot_skips_codes_with_malformed_quote_but_keeps_others():
+    """Regression test: an empty/partial quote dict for one code (as
+    KisClient.get_quote legitimately returns when KIS omits `output`) must
+    not raise KeyError out of the per-code loop and abort the whole tick —
+    partial failure tolerance means only that code is skipped."""
+    provider, client = _provider_with_fake_client()
+    client.ranking_rows = [
+        {"stck_shrn_iscd": "005930", "hts_kor_isnm": "삼성전자", "data_rank": "1"},
+        {"stck_shrn_iscd": "000660", "hts_kor_isnm": "SK하이닉스", "data_rank": "2"},
+    ]
+    client.quote_by_code["000660"] = {}  # empty/partial -> KeyError in quote_to_snapshot
+    now = datetime.datetime(2026, 8, 12, 9, 30)
+
+    snapshots = provider.get_snapshot(now)
+
+    codes = {s.code for s in snapshots}
+    assert codes == {"005930"}
+
+
+def test_update_minute_bar_requests_previous_completed_minute():
+    """Regression test: KIS should be asked for the PREVIOUS completed
+    minute's bars, not the barely-started current minute, so the returned
+    bar is a fully-formed candle instead of a near-empty partial one."""
+    provider, client = _provider_with_fake_client()
+    now = datetime.datetime(2026, 8, 12, 9, 31, 0)
+
+    provider.get_snapshot(now)
+
+    assert len(client.minute_bar_calls) == 1
+    code, reference_time = client.minute_bar_calls[0]
+    assert code == "005930"
+    assert reference_time == "093000"  # now (09:31:00) minus 1 minute
