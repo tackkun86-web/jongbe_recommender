@@ -46,3 +46,18 @@ def test_leader_watch_main_reports_missing_kis_credentials_without_traceback(mon
     assert exit_code == 1
     assert "KIS_APP_KEY" in captured.err or "KIS" in captured.err
     assert "Traceback" not in captured.err
+
+
+@patch("main.Engine")
+def test_leader_watch_main_reports_not_implemented_provider_without_traceback(mock_engine_cls, capsys):
+    # `main.py`'s `except NotImplementedError:` branch is reachable by any
+    # provider's `engine.run()`/`run_once()` raising it — not specific to
+    # RealProvider (which is no longer a stub). Drive it via a mocked Engine
+    # so this test never touches RealProvider()/KIS credentials at all.
+    instance = mock_engine_cls.return_value
+    instance.run_once.side_effect = NotImplementedError("some provider message")
+    exit_code = leader_watch_main(["--provider", "mock", "--notifier", "console", "--single-tick"])
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "some provider message" in captured.err
+    assert "Traceback" not in captured.err
