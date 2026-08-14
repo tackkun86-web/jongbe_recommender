@@ -90,6 +90,16 @@ def _load_recent_nxt_totals(max_days: int = 5) -> list[float]:
     return totals
 
 
+def _resolve_market_cap_eok(candidate: dict) -> float:
+    market_cap_eok = candidate.get("market_cap_eok")
+    if market_cap_eok is not None:
+        return market_cap_eok
+    try:
+        return data_fetcher.get_stock_summary(candidate["code"]).get("market_cap_eok", 0.0)
+    except Exception:
+        return 0.0
+
+
 def _build_fallback_nxt_stocks() -> list[dict]:
     try:
         universe = _build_candidate_universe()
@@ -99,7 +109,7 @@ def _build_fallback_nxt_stocks() -> list[dict]:
     for candidate in universe:
         hard_pass, _ = filters.apply_hard_filters({
             "name": candidate["name"],
-            "market_cap_eok": candidate["market_cap_eok"],
+            "market_cap_eok": _resolve_market_cap_eok(candidate),
             "change_pct": candidate["change_pct"],
             "trade_value_eok": candidate["trade_value_eok"],
         })
@@ -237,7 +247,7 @@ def run_nxt_analysis() -> dict:
 def _evaluate_candidate(candidate: dict, prev_top_codes: set):
     hard_pass, _ = filters.apply_hard_filters({
         "name": candidate["name"],
-        "market_cap_eok": candidate["market_cap_eok"],
+        "market_cap_eok": _resolve_market_cap_eok(candidate),
         "change_pct": candidate["change_pct"],
         "trade_value_eok": candidate["trade_value_eok"],
     })

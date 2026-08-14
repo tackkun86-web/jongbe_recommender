@@ -60,6 +60,43 @@ def _parse_quant_table(html: str) -> list[dict]:
     return rows
 
 
+def _parse_rise_table(html: str) -> list[dict]:
+    # sise_rise.naver's columns differ from sise_quant.naver: N, 종목명, 현재가,
+    # 전일비, 등락률, 거래량, 매수호가, 매도호가, 매수잔량, 매도잔량, PER, ROE.
+    # It has no 거래대금/시가총액 columns, so those must not be read positionally
+    # from here (that previously misread a bid/ask price as trade value).
+    soup = BeautifulSoup(html, "lxml")
+    table = soup.find("table", class_="type_2")
+    if table is None:
+        return []
+    rows = []
+    for tr in table.find_all("tr"):
+        link = tr.find("a", href=re.compile(r"code=(\d{6})"))
+        if link is None:
+            continue
+        code = re.search(r"code=(\d{6})", link["href"]).group(1)
+        name = link.get_text(strip=True)
+        tds = tr.find_all("td")
+        if len(tds) < 11:
+            continue
+        price = _to_number(tds[2].get_text())
+        change_text = tds[4].get_text()
+        change_pct = _to_number(change_text)
+        if "하락" in change_text or ("-" in change_text and change_pct > 0):
+            change_pct = -change_pct
+        volume = _to_number(tds[5].get_text())
+        rows.append({
+            "code": code,
+            "name": name,
+            "price": price,
+            "change_pct": change_pct,
+            "volume": volume,
+            "trade_value_eok": price * volume / 1e8,
+            "market_cap_eok": None,
+        })
+    return rows
+
+
 def get_top_stocks_by_trade_value(sosok: int, pages: int = 2) -> list[dict]:
     results = []
     for page in range(1, pages + 1):
@@ -72,7 +109,7 @@ def get_top_gainers(sosok: int, pages: int = 3) -> list[dict]:
     results = []
     for page in range(1, pages + 1):
         url = NAVER_URLS["gainers"].format(sosok=sosok, page=page)
-        results.extend(_parse_quant_table(_fetch_html(url)))
+        results.extend(_parse_rise_table(_fetch_html(url)))
     return results
 
 
