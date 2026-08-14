@@ -97,11 +97,58 @@ def _parse_rise_table(html: str) -> list[dict]:
     return rows
 
 
-def get_top_stocks_by_trade_value(sosok: int, pages: int = 2) -> list[dict]:
+def _parse_market_sum_table(html: str) -> list[dict]:
+    # sise_market_sum.naver columns: N, 종목명, 현재가, 전일비, 등락률, 액면가,
+    # 시가총액, 상장주식수, 외국인비율, 거래량, PER, ROE, 토론실. It is sorted by
+    # 시가총액 (market cap), not by trade value, and has no 거래대금 column, so
+    # trade_value_eok must be computed as price*volume rather than read
+    # positionally or trusted from row order.
+    soup = BeautifulSoup(html, "lxml")
+    table = soup.find("table", class_="type_2")
+    if table is None:
+        return []
+    rows = []
+    for tr in table.find_all("tr"):
+        link = tr.find("a", href=re.compile(r"code=(\d{6})"))
+        if link is None:
+            continue
+        code = re.search(r"code=(\d{6})", link["href"]).group(1)
+        name = link.get_text(strip=True)
+        tds = tr.find_all("td")
+        if len(tds) < 10:
+            continue
+        price = _to_number(tds[2].get_text())
+        change_text = tds[4].get_text()
+        change_pct = _to_number(change_text)
+        if "하락" in change_text or ("-" in change_text and change_pct > 0):
+            change_pct = -change_pct
+        market_cap_eok = _to_number(tds[6].get_text())
+        volume = _to_number(tds[9].get_text())
+        rows.append({
+            "code": code,
+            "name": name,
+            "price": price,
+            "change_pct": change_pct,
+            "volume": volume,
+            "trade_value_eok": price * volume / 1e8,
+            "market_cap_eok": market_cap_eok,
+        })
+    return rows
+
+
+def get_top_stocks_by_trade_value(sosok: int, max_pages: int = 60) -> list[dict]:
+    # sise_market_sum.naver lists the full market (paginated properly, unlike
+    # sise_quant.naver which silently returns the same ~80 rows for every
+    # page and is sorted by volume, not trade value). Walk pages until one
+    # comes back empty so we cover the whole market and can rank by the
+    # trade value we compute ourselves.
     results = []
-    for page in range(1, pages + 1):
+    for page in range(1, max_pages + 1):
         url = NAVER_URLS["trade_value"].format(sosok=sosok, page=page)
-        results.extend(_parse_quant_table(_fetch_html(url)))
+        rows = _parse_market_sum_table(_fetch_html(url))
+        if not rows:
+            break
+        results.extend(rows)
     return results
 
 

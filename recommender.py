@@ -23,7 +23,7 @@ SESSION_LABELS = {
 def _build_candidate_universe() -> list[dict]:
     seen = {}
     for sosok, market in ((0, "KOSPI"), (1, "KOSDAQ")):
-        for row in data_fetcher.get_top_stocks_by_trade_value(sosok, pages=2):
+        for row in data_fetcher.get_top_stocks_by_trade_value(sosok):
             row["market"] = market
             seen[row["code"]] = row
         for row in data_fetcher.get_top_gainers(sosok, pages=2):

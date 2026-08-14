@@ -14,7 +14,7 @@ REQUEST_SLEEP = 0.1
 ENCODING = "euc-kr"
 
 NAVER_URLS = {
-    "trade_value": "https://finance.naver.com/sise/sise_quant.naver?sosok={sosok}&page={page}",
+    "trade_value": "https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page={page}",
     "gainers": "https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}&page={page}",
     "daily": "https://finance.naver.com/item/sise_day.naver?code={code}&page={page}",
     "investor": "https://finance.naver.com/item/frgn.naver?code={code}&page={page}",
