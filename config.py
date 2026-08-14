@@ -28,6 +28,8 @@ NAVER_URLS = {
 EXCLUDED_NAME_KEYWORDS = [
     "KODEX", "TIGER", "KBSTAR", "ARIRANG", "인버스", "레버리지",
     "선물", "스팩", "리츠", "HANARO", "KOSEF", "SOL", "ACE",
+    "RISE", "WOORI", "TIMEFOLIO", "PLUS", "KIWOOM", "1Q", "히어로즈",
+    "FOCUS", "마이다스", "ETN",
 ]
 
 HARD_FILTERS = {
