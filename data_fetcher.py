@@ -136,6 +136,72 @@ def _parse_market_sum_table(html: str) -> list[dict]:
     return rows
 
 
+def _parse_theme_ranking_table(html: str) -> list[dict]:
+    soup = BeautifulSoup(html, "lxml")
+    table = soup.find("table", class_="type_1")
+    if table is None:
+        return []
+    rows = []
+    for tr in table.find_all("tr"):
+        link = tr.find("td", class_="col_type1")
+        link = link.find("a") if link else None
+        if link is None:
+            continue
+        no_match = re.search(r"no=(\d+)", link["href"])
+        if no_match is None:
+            continue
+        tds = tr.find_all("td")
+        if len(tds) < 6:
+            continue
+        rows.append({
+            "theme_no": no_match.group(1),
+            "name": link.get_text(strip=True),
+            "change_pct": _to_number(tds[1].get_text()),
+            "up_count": int(_to_number(tds[3].get_text())),
+            "flat_count": int(_to_number(tds[4].get_text())),
+            "down_count": int(_to_number(tds[5].get_text())),
+        })
+    return rows
+
+
+def _parse_theme_detail_table(html: str) -> list[dict]:
+    soup = BeautifulSoup(html, "lxml")
+    table = soup.find("table", class_="type_5")
+    if table is None:
+        return []
+    rows = []
+    for tr in table.find_all("tr"):
+        name_cell = tr.find("td", class_="name")
+        link = name_cell.find("a") if name_cell else None
+        if link is None:
+            continue
+        code_match = re.search(r"code=(\d{6})", link["href"])
+        if code_match is None:
+            continue
+        tds = tr.find_all("td")
+        if len(tds) < 5:
+            continue
+        rows.append({
+            "code": code_match.group(1),
+            "name": link.get_text(strip=True),
+            "change_pct": _to_number(tds[4].get_text()),
+        })
+    return rows
+
+
+def get_theme_ranking(pages: int = 1) -> list[dict]:
+    results = []
+    for page in range(1, pages + 1):
+        url = NAVER_URLS["theme_ranking"].format(page=page)
+        results.extend(_parse_theme_ranking_table(_fetch_html(url)))
+    return results
+
+
+def get_theme_members(theme_no: str) -> list[dict]:
+    url = NAVER_URLS["theme_detail"].format(theme_no=theme_no)
+    return _parse_theme_detail_table(_fetch_html(url))
+
+
 def get_top_stocks_by_trade_value(sosok: int, max_pages: int = 60) -> list[dict]:
     # sise_market_sum.naver lists the full market (paginated properly, unlike
     # sise_quant.naver which silently returns the same ~80 rows for every

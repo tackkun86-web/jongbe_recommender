@@ -23,6 +23,8 @@ NAVER_URLS = {
     "kosdaq_index": "https://finance.naver.com/sise/sise_index.naver?code=KOSDAQ",
     "world_index": "https://finance.naver.com/world/",
     "market_index": "https://finance.naver.com/marketindex/",
+    "theme_ranking": "https://finance.naver.com/sise/theme.naver?page={page}",
+    "theme_detail": "https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no={theme_no}",
 }
 
 EXCLUDED_NAME_KEYWORDS = [
