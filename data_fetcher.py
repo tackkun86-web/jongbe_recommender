@@ -202,6 +202,25 @@ def get_theme_members(theme_no: str) -> list[dict]:
     return _parse_theme_detail_table(_fetch_html(url))
 
 
+def get_all_themes(max_pages: int = 60) -> list[dict]:
+    # theme.naver clamps out-of-range pages to the last valid page instead of
+    # returning empty, so walk until a page repeats the previous page's
+    # theme_no set rather than until a page comes back empty.
+    results = []
+    prev_nos = None
+    for page in range(1, max_pages + 1):
+        url = NAVER_URLS["theme_ranking"].format(page=page)
+        rows = _parse_theme_ranking_table(_fetch_html(url))
+        if not rows:
+            break
+        nos = {r["theme_no"] for r in rows}
+        if nos == prev_nos:
+            break
+        results.extend(rows)
+        prev_nos = nos
+    return results
+
+
 def get_top_stocks_by_trade_value(sosok: int, max_pages: int = 60) -> list[dict]:
     # sise_market_sum.naver lists the full market (paginated properly, unlike
     # sise_quant.naver which silently returns the same ~80 rows for every
