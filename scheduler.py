@@ -3,8 +3,6 @@ import logging
 
 import schedule
 
-import recommender
-import notifier
 import report_leader_0930
 
 logging.basicConfig(
@@ -14,14 +12,6 @@ logging.basicConfig(
 )
 
 
-def _run_and_notify(session: str = "close"):
-    try:
-        result = recommender.run_analysis(session=session)
-        notifier.notify(result)
-    except Exception:
-        logging.exception("run_analysis failed")
-
-
 def _run_leader_report():
     try:
         report_leader_0930.run()
@@ -29,12 +19,21 @@ def _run_leader_report():
         logging.exception("report_leader_0930 failed")
 
 
-def start():
+def register_jobs():
+    """Register only the 09:30 leader report.
+
+    15:00 (top30) is owned by the Windows
+    Task Scheduler entry JongbeTop30TradeValueReport. The close (15:10) and NXT (19:50)
+    closing-bet messages were removed on request. The old double-registration made
+    every Telegram message fire twice.
+    """
     for day in ("monday", "tuesday", "wednesday", "thursday", "friday"):
         getattr(schedule.every(), day).at("09:30").do(_run_leader_report)
-        getattr(schedule.every(), day).at("15:10").do(_run_and_notify, session="close")
-        getattr(schedule.every(), day).at("19:50").do(_run_and_notify, session="nxt")
-    logging.info("scheduler started, waiting for weekday 09:30, 15:10, and 19:50 KST")
+
+
+def start():
+    register_jobs()
+    logging.info("scheduler started, waiting for weekday 09:30 KST")
     while True:
         schedule.run_pending()
         time.sleep(30)

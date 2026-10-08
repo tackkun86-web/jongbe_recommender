@@ -54,6 +54,9 @@ def send_telegram(text: str) -> bool:
 
 def run() -> None:
     report = build_leader_report()
+    if not report:
+        # Never send a header-only message; surface the data failure instead.
+        raise RuntimeError("leader report empty: no themes returned by data source")
     message = format_message(report)
     print(message)
     ok = send_telegram(message)

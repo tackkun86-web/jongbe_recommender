@@ -14,8 +14,8 @@ REQUEST_SLEEP = 0.1
 ENCODING = "euc-kr"
 
 NAVER_URLS = {
-    "trade_value": "https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page={page}",
-    "gainers": "https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}&page={page}",
+    "trade_value": "https://m.stock.naver.com/api/stocks/marketValue/{market}?page={page}&pageSize={size}",
+    "gainers": "https://m.stock.naver.com/api/stocks/up/{market}?page={page}&pageSize={size}",
     "daily": "https://finance.naver.com/item/sise_day.naver?code={code}&page={page}",
     "investor": "https://finance.naver.com/item/frgn.naver?code={code}&page={page}",
     "summary": "https://finance.naver.com/item/main.naver?code={code}",
@@ -23,8 +23,8 @@ NAVER_URLS = {
     "kosdaq_index": "https://finance.naver.com/sise/sise_index.naver?code=KOSDAQ",
     "world_index": "https://finance.naver.com/world/",
     "market_index": "https://finance.naver.com/marketindex/",
-    "theme_ranking": "https://finance.naver.com/sise/theme.naver?page={page}",
-    "theme_detail": "https://finance.naver.com/sise/sise_group_detail.naver?type=theme&no={theme_no}",
+    "theme_ranking": "https://m.stock.naver.com/api/stocks/theme?page={page}&pageSize=100",
+    "theme_detail": "https://m.stock.naver.com/api/stocks/theme/{theme_no}?page=1&pageSize=100",
 }
 
 EXCLUDED_NAME_KEYWORDS = [

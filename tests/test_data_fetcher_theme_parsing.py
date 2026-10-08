@@ -83,3 +83,26 @@ def test_parse_theme_detail_table_extracts_code_name_and_signed_change_pct():
     assert len(rows) == 2
     assert rows[0] == {"code": "294570", "name": "에스씨", "change_pct": 23.17}
     assert rows[1] == {"code": "053580", "name": "위닉스", "change_pct": -1.97}
+
+
+def test_parse_theme_groups_json():
+    from data_fetcher import _parse_theme_groups_json
+    rows = _parse_theme_groups_json({"groups": [
+        {"no": 591, "name": "고속버스", "changeRate": "-6.53", "riseCount": 3, "fallCount": 2, "steadyCount": 1}]})
+    assert rows == [{"theme_no": "591", "name": "고속버스", "change_pct": -6.53,
+                     "up_count": 3, "flat_count": 1, "down_count": 2}]
+    assert _parse_theme_groups_json({}) == []
+
+
+def test_parse_theme_members_json():
+    from data_fetcher import _parse_theme_members_json
+    rows = _parse_theme_members_json({"stocks": [
+        {"itemCode": "084670", "stockName": "동양고속", "fluctuationsRatio": "25.13"}]})
+    assert rows == [{"code": "084670", "name": "동양고속", "change_pct": 25.13}]
+
+
+def test_leader_report_empty_raises(monkeypatch):
+    import pytest, report_leader_0930 as r
+    monkeypatch.setattr(r.data_fetcher, "get_theme_ranking", lambda: [])
+    with pytest.raises(RuntimeError):
+        r.run()

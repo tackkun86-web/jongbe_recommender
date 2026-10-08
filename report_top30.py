@@ -53,14 +53,18 @@ def send_telegram(text: str) -> bool:
     return resp.status_code == 200
 
 
-def main() -> None:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+def run() -> None:
     rows = build_top50()
     theme_map = build_theme_map()
     message = format_message(rows, theme_map)
     print(message)
     ok = send_telegram(message)
     print(f"telegram sent: {ok}")
+
+
+def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    run()
 
 
 if __name__ == "__main__":

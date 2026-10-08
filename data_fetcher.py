@@ -189,59 +189,114 @@ def _parse_theme_detail_table(html: str) -> list[dict]:
     return rows
 
 
+def _fetch_json(url: str) -> dict:
+    resp = requests.get(url, headers=HEADERS, timeout=10)
+    resp.raise_for_status()
+    time.sleep(REQUEST_SLEEP)
+    return resp.json()
+
+
+def _parse_theme_groups_json(data: dict) -> list[dict]:
+    rows = []
+    for g in data.get("groups") or []:
+        rows.append({
+            "theme_no": str(g["no"]),
+            "name": g["name"],
+            "change_pct": _to_number(str(g.get("changeRate", ""))),
+            "up_count": int(g.get("riseCount", 0)),
+            "flat_count": int(g.get("steadyCount", 0)),
+            "down_count": int(g.get("fallCount", 0)),
+        })
+    return rows
+
+
+def _parse_theme_members_json(data: dict) -> list[dict]:
+    return [{
+        "code": s["itemCode"],
+        "name": s["stockName"],
+        "change_pct": _to_number(str(s.get("fluctuationsRatio", ""))),
+    } for s in data.get("stocks") or []]
+
+
+# theme.naver / sise_group_detail.naver became JS-rendered (empty HTML tables),
+# so themes now come from the mobile JSON API.
 def get_theme_ranking(pages: int = 1) -> list[dict]:
     results = []
     for page in range(1, pages + 1):
         url = NAVER_URLS["theme_ranking"].format(page=page)
-        results.extend(_parse_theme_ranking_table(_fetch_html(url)))
+        results.extend(_parse_theme_groups_json(_fetch_json(url)))
     return results
 
 
 def get_theme_members(theme_no: str) -> list[dict]:
     url = NAVER_URLS["theme_detail"].format(theme_no=theme_no)
-    return _parse_theme_detail_table(_fetch_html(url))
+    return _parse_theme_members_json(_fetch_json(url))
 
 
 def get_all_themes(max_pages: int = 60) -> list[dict]:
-    # theme.naver clamps out-of-range pages to the last valid page instead of
-    # returning empty, so walk until a page repeats the previous page's
-    # theme_no set rather than until a page comes back empty.
+    # The API answers 404 for pages past the end; a short page is the last one.
     results = []
-    prev_nos = None
     for page in range(1, max_pages + 1):
         url = NAVER_URLS["theme_ranking"].format(page=page)
-        rows = _parse_theme_ranking_table(_fetch_html(url))
-        if not rows:
-            break
-        nos = {r["theme_no"] for r in rows}
-        if nos == prev_nos:
+        try:
+            rows = _parse_theme_groups_json(_fetch_json(url))
+        except requests.HTTPError:
+            if page == 1:
+                raise
             break
         results.extend(rows)
-        prev_nos = nos
+        if len(rows) < 100:
+            break
     return results
 
 
+_MARKET_NAMES = {0: "KOSPI", 1: "KOSDAQ"}
+_PAGE_SIZE = 100
+
+
+def _parse_stock_list_json(data: dict) -> list[dict]:
+    # m.stock.naver.com reports accumulatedTradingValue and marketValue in
+    # millions of KRW, so /100 gives 억.
+    rows = []
+    for s in data.get("stocks") or []:
+        market_value = s.get("marketValue")
+        rows.append({
+            "code": s["itemCode"],
+            "name": s["stockName"],
+            "price": _to_number(str(s.get("closePrice", ""))),
+            "change_pct": _to_number(str(s.get("fluctuationsRatio", ""))),
+            "volume": _to_number(str(s.get("accumulatedTradingVolume", ""))),
+            "trade_value_eok": _to_number(str(s.get("accumulatedTradingValue", ""))) / 100,
+            "market_cap_eok": _to_number(str(market_value)) / 100 if market_value else None,
+        })
+    return rows
+
+
 def get_top_stocks_by_trade_value(sosok: int, max_pages: int = 60) -> list[dict]:
-    # sise_market_sum.naver lists the full market (paginated properly, unlike
-    # sise_quant.naver which silently returns the same ~80 rows for every
-    # page and is sorted by volume, not trade value). Walk pages until one
-    # comes back empty so we cover the whole market and can rank by the
-    # trade value we compute ourselves.
+    # sise_market_sum.naver is JS-rendered now; walk the mobile API's full
+    # market list (sorted by market cap) so callers can rank by trade value.
+    market = _MARKET_NAMES[sosok]
     results = []
     for page in range(1, max_pages + 1):
-        url = NAVER_URLS["trade_value"].format(sosok=sosok, page=page)
-        rows = _parse_market_sum_table(_fetch_html(url))
-        if not rows:
-            break
+        url = NAVER_URLS["trade_value"].format(market=market, page=page, size=_PAGE_SIZE)
+        rows = _parse_stock_list_json(_fetch_json(url))
         results.extend(rows)
+        if len(rows) < _PAGE_SIZE:
+            break
     return results
 
 
 def get_top_gainers(sosok: int, pages: int = 3) -> list[dict]:
+    market = _MARKET_NAMES[sosok]
     results = []
     for page in range(1, pages + 1):
-        url = NAVER_URLS["gainers"].format(sosok=sosok, page=page)
-        results.extend(_parse_rise_table(_fetch_html(url)))
+        url = NAVER_URLS["gainers"].format(market=market, page=page, size=_PAGE_SIZE)
+        rows = _parse_stock_list_json(_fetch_json(url))
+        for r in rows:
+            r["market_cap_eok"] = None
+        results.extend(rows)
+        if len(rows) < _PAGE_SIZE:
+            break
     return results
 
 

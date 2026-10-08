@@ -84,3 +84,16 @@ def test_parse_market_sum_table_computes_trade_value_from_price_times_volume():
     # rather than trusting row order.
     assert row["trade_value_eok"] == 75_000 * 10_000_000 / 1e8
     assert row["market_cap_eok"] == 4_500_000  # already 억원 on Naver
+
+
+def test_parse_stock_list_json_converts_units():
+    from data_fetcher import _parse_stock_list_json
+    rows = _parse_stock_list_json({"stocks": [{
+        "itemCode": "005930", "stockName": "삼성전자", "closePrice": "263,750",
+        "fluctuationsRatio": "-1.77", "accumulatedTradingVolume": "10,139,426",
+        "accumulatedTradingValue": "2,708,850", "marketValue": "15,419,560"}]})
+    r = rows[0]
+    assert r["code"] == "005930" and r["change_pct"] == -1.77
+    assert r["price"] == 263750 and r["volume"] == 10139426
+    assert abs(r["trade_value_eok"] - 27088.5) < 0.01
+    assert round(r["market_cap_eok"]) == 154196
